@@ -60,6 +60,12 @@ std::string wstringToUtf8(const std::wstring& wstr) {
 
 void startBot(std::string token) {
 	TgBot::Bot bot(token);
+
+	/*
+	Если текущий режим пуст - значит это обычный режим: мы можем писать команды,
+	если же он не пуст, то значит программа не будет принимать команды, а будет принимать то,
+	на что настроен режим (путь к папке, флаги выполнения подзадач и т.п.)
+	*/
 	std::string currentMode = "";
 
 
@@ -123,8 +129,10 @@ void startBot(std::string token) {
 		});
 
 
+	// Обработка ВСЕХ сообщений от пользователя проходит здесь В ПЕРВУЮ ОЧЕРЕДЬ
 	bot.getEvents().onAnyMessage([&bot, &currentMode](TgBot::Message::Ptr message) {
 
+		// Эта команда находится здесь из-за удобства 
 		std::string messageText = message->text;
 		if (messageText == "/exit_mode") {
 			bot.getApi().sendMessage(message->chat->id, "Exiting your current mode: " + currentMode);
