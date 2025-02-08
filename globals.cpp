@@ -14,6 +14,5 @@ the mode is set to (path to folder, flags for executing subtasks, etc.)
 */
 
 int currentMode = MODE_STANDARD;
-std::string conversationMode = "speak";
 bool isWaitingForSecondPath = false;
 bool isWaitingForFile = false;

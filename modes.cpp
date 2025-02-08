@@ -188,43 +188,32 @@ void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 }
 
 
-void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
-	while (isConversationRunning) {
-		std::string input;
-		std::getline(std::cin, input);
 
-		bot.getApi().sendMessage(chat_id, input);
+void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
+	using namespace std;
+
+	while (isConversationRunning) {
+		try {
+			string input;
+			getline(cin, input);
+
+			if (input.empty()) {
+				bot.getApi().sendMessage(chat_id, "[ENTER]");
+				continue;
+			}
+			bot.getApi().sendMessage(chat_id, input);
+		}
+		catch (const std::exception& e) {
+			bot.getApi().sendMessage(chat_id, string("Error: ") + e.what());
+		}
 	}
 }
 
 
 void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	using namespace std;
-
-	if (message->text == "listen") {
-		conversationMode = "listen";
-		bot.getApi().sendMessage(message->chat->id, "Your current conversation mode set to: " + conversationMode);
-	}
-
-	else if (message->text == "speak") {
-		conversationMode = "speak";
-		bot.getApi().sendMessage(message->chat->id, "Your current conversation mode set to: " + conversationMode);
-		return;
-	}
-
 	try {
-		if (conversationMode == "listen") {
-			int64_t chat_id = message->chat->id;
-
-			isConversationRunning = true;
-			thread listenThread(listenMode, ref(bot), chat_id);
-			listenThread.detach();
-
-		}
-		else {
-			cout << message->text << endl;
-			bot.getApi().sendMessage(message->chat->id, "Your message sended successfully.");
-		}
+		cout << message->text << endl;
 	}
 	catch (const std::exception& e) {
 		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());

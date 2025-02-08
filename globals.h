@@ -21,7 +21,6 @@ enum Modes {
 };
 
 extern int currentMode;
-extern std::string conversationMode;
 extern bool isWaitingForSecondPath;
 extern bool isWaitingForFile;
 
