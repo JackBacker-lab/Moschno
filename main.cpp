@@ -258,6 +258,6 @@ int main()
 
 	//AddToStartup(L"System", L"path\\to\\your\\program.exe");
 
-	startBot("6507971490:AAEFE5H4m1KJvJwUXFDgM4cVHSSwTXx0uiU");
+	startBot("TOKEN");
 	return 0;
 }
