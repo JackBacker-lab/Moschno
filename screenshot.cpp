@@ -1,43 +1,37 @@
 #include "screenshot.h"
 
-// Функция для получения разрешения экрана
+
+// Function to get screen resolution
 void GetScreenResolution(int& width, int& height) {
-	// Получаем описание текущего монитора
 	DEVMODE devmode;
 	EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
 
-	// Сохраняем разрешение
 	width = devmode.dmPelsWidth;
 	height = devmode.dmPelsHeight;
 }
 
-// Функция для создания скриншота экрана
+
+// Function for creating a screenshot
 void takeScreenshot(const char* filename) {
 	int screenX, screenY;
-	GetScreenResolution(screenX, screenY);  // Получаем разрешение экрана
+	GetScreenResolution(screenX, screenY);
 
-	std::cout << "Screen Resolution: " << screenX << "x" << screenY << std::endl; // Выводим разрешение экрана
+	HDC hScreenDC = GetDC(NULL);
+	HDC hMemoryDC = CreateCompatibleDC(hScreenDC);
 
-	// Создаем DC для экрана и совместимый DC
-	HDC hScreenDC = GetDC(NULL);  // Получаем контекст устройства экрана
-	HDC hMemoryDC = CreateCompatibleDC(hScreenDC);  // Создаем совместимый контекст для рисования в памяти
+	HBITMAP hBitmap = CreateCompatibleBitmap(hScreenDC, screenX, screenY);
+	SelectObject(hMemoryDC, hBitmap);
 
-	// Создаем bitmap для хранения изображения
-	HBITMAP hBitmap = CreateCompatibleBitmap(hScreenDC, screenX, screenY);  // Создаем битмап
-	SelectObject(hMemoryDC, hBitmap);  // Выбираем его в контекст памяти
-
-	// Копируем содержимое экрана в память
 	if (!BitBlt(hMemoryDC, 0, 0, screenX, screenY, hScreenDC, 0, 0, SRCCOPY)) {
 		std::cerr << "BitBlt failed!" << std::endl;
 	}
 
-	// Сохраняем bitmap в файл
 	BITMAPFILEHEADER bmfHeader;
 	BITMAPINFOHEADER bi;
 
 	bi.biSize = sizeof(BITMAPINFOHEADER);
 	bi.biWidth = screenX;
-	bi.biHeight = -screenY; // Отрицательное значение для переворота
+	bi.biHeight = -screenY;
 	bi.biPlanes = 1;
 	bi.biBitCount = 32;
 	bi.biCompression = BI_RGB;
@@ -49,39 +43,34 @@ void takeScreenshot(const char* filename) {
 
 	DWORD dwBmpSize = ((screenX * bi.biBitCount + 31) / 32) * 4 * screenY;
 
-	HANDLE hDIB = GlobalAlloc(GHND, dwBmpSize);  // Выделяем память для изображения
+	HANDLE hDIB = GlobalAlloc(GHND, dwBmpSize);
 	char* lpbitmap = (char*)GlobalLock(hDIB);
 
 	if (GetDIBits(hMemoryDC, hBitmap, 0, (UINT)screenY, lpbitmap, (BITMAPINFO*)&bi, DIB_RGB_COLORS) == 0) {
 		std::cerr << "GetDIBits failed!" << std::endl;
 	}
 
-	// Преобразуем filename в LPCWSTR для функции Windows
 	std::wstring wide_filename = std::wstring(filename, filename + strlen(filename));
 	LPCWSTR w_filename = wide_filename.c_str();
 
-	HANDLE hFile = CreateFile(w_filename, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);  // Открываем файл для записи
+	HANDLE hFile = CreateFile(w_filename, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 
 	DWORD dwSizeofDIB = dwBmpSize + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
 
 	bmfHeader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
 	bmfHeader.bfSize = dwSizeofDIB;
-	bmfHeader.bfType = 0x4D42;  // "BM" в десятичном виде
+	bmfHeader.bfType = 0x4D42;
 
 	DWORD dwBytesWritten;
-	WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, nullptr);  // Записываем заголовок файла
-	WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, nullptr);  // Записываем заголовок DIB
-	WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, nullptr);  // Записываем данные изображения
+	WriteFile(hFile, (LPSTR)&bmfHeader, sizeof(BITMAPFILEHEADER), &dwBytesWritten, nullptr);
+	WriteFile(hFile, (LPSTR)&bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, nullptr);
+	WriteFile(hFile, (LPSTR)lpbitmap, dwBmpSize, &dwBytesWritten, nullptr);
 
-	// Освобождаем память
 	GlobalUnlock(hDIB);
 	GlobalFree(hDIB);
 	CloseHandle(hFile);
 
-	// Освобождаем ресурсы
 	DeleteObject(hBitmap);
 	DeleteDC(hMemoryDC);
 	ReleaseDC(NULL, hScreenDC);
-
-	std::cout << "Screenshot saved to " << filename << std::endl;
 }
