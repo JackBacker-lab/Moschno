@@ -7,6 +7,9 @@
 #include <Shellapi.h>
 #include "conversions.h"
 #include <conio.h>
+#include <mmsystem.h>
+
+#pragma comment(lib, "winmm.lib")
 
 // Filesystem
 void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
@@ -19,5 +22,8 @@ void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 // Console conversation
 void listenMode(const TgBot::Bot& bot, const int64_t chat_id);
 void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+
+// Music
+void playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 
 #endif

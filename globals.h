@@ -18,10 +18,12 @@ enum Modes {
 	MODE_SEND_FILE,
 	MODE_UPLOAD_FILE,
 	MODE_CONVERSATION,
+	MODE_PLAY_MUSIC,
 };
 
 extern int currentMode;
 extern bool isWaitingForSecondPath;
 extern bool isWaitingForFile;
+extern bool isMusicPlaying;
 
 #endif

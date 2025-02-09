@@ -182,6 +182,17 @@ void startBot(std::string token)
 		});
 
 
+	bot.getEvents().onCommand("play_music_mode", [&bot](TgBot::Message::Ptr message) {
+		if (currentMode == MODE_STANDARD)
+		{
+			bot.getApi().sendMessage(message->chat->id, "Send a path to mp3 you want to play.");
+			currentMode = MODE_PLAY_MUSIC;
+		}
+		else
+			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+		});
+
+
 	// Experimental, DO NOT USE - IT'S NOT WORKING FOR NOW!
 	bot.getEvents().onCommand("conversation_mode", [&bot](TgBot::Message::Ptr message) {
 
@@ -210,6 +221,22 @@ void startBot(std::string token)
 			return;
 		}
 
+		else if (message->text == "/stop_music") {
+			if (isMusicPlaying)
+			{
+				try {
+					mciSendString(L"close myMP3", NULL, 0, NULL);
+					bot.getApi().sendMessage(message->chat->id, "Music has been successfully stopped.");
+				}
+				catch (const std::exception& e) {
+					bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
+				}
+			}
+			else
+				bot.getApi().sendMessage(message->chat->id, "Music is not playing right now.");
+			return;
+		}
+
 
 		switch (currentMode) 
 		{
@@ -233,6 +260,9 @@ void startBot(std::string token)
 			break;
 		case MODE_CONVERSATION:
 			startConversation(bot, message);
+			break;
+		case MODE_PLAY_MUSIC:
+			playMusic(bot, message);
 			break;
 		}
 

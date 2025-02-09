@@ -219,3 +219,33 @@ void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
 	}
 }
+
+
+void playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+	namespace fs = std::filesystem;
+	using namespace std;
+
+	string path = message->text;
+	wstring wpath(path.begin(), path.end());
+
+	if (!fs::exists(path)) {
+		bot.getApi().sendMessage(message->chat->id, "Error: File does not exist.");
+		return;
+	}
+
+	ifstream file(path);
+	if (!file.is_open()) {
+		bot.getApi().sendMessage(message->chat->id, "Error: Cannot open file.");
+		return;
+	}
+	file.close();
+
+	try {
+		mciSendString((L"open \"" + wpath + L"\" type mpegvideo alias myMP3").c_str(), NULL, 0, NULL);
+		mciSendString(L"play myMP3", NULL, 0, NULL);
+		isMusicPlaying = true;
+	}
+	catch (const std::exception& e) {
+		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
+	}
+}
