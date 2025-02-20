@@ -8,11 +8,13 @@
 #include "conversions.h"
 #include <conio.h>
 #include <mmsystem.h>
+#include <queue>
 
 #pragma comment(lib, "winmm.lib")
 
 // Filesystem
 void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 void startFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 void deleteFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 void copyFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);

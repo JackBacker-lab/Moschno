@@ -1,32 +1,127 @@
 #include "modes.h"
 #include "globals.h"
+#include "conversions.h"
 
 
 void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
+	if (!message || !message->text.length()) {
+		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
+		return;
+	}
+
 	string path = message->text;
-	wstring wpath = utf8_to_wstring(path);
+	wstring wpath;
 
-	if (fs::exists(wpath) && fs::is_directory(wpath)) {
-		string response;
+	try {
+		wpath = utf8_to_wstring(path);
+	}
+	catch (const exception& e) {
+		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
+		return;
+	}
 
+	if (!fs::exists(wpath)) {
+		bot.getApi().sendMessage(message->chat->id, "Path does not exist.");
+		return;
+	}
+
+	if (!fs::is_directory(wpath)) {
+		bot.getApi().sendMessage(message->chat->id, "The path is not a directory.");
+		return;
+	}
+
+	string response;
+	size_t maxMessageSize = 4096; // Telegram API limit
+	size_t currentSize = 0;
+
+	try {
 		for (const auto& entry : fs::directory_iterator(wpath)) {
+			if (!entry.exists()) continue;
+
 			wstring filePath = entry.path().wstring();
 			string filePathUtf8 = wstringToUtf8(filePath);
 
+			if (currentSize + filePathUtf8.length() + 1 > maxMessageSize) {
+				bot.getApi().sendMessage(message->chat->id, response);
+				response.clear();
+				currentSize = 0;
+			}
+
 			response += filePathUtf8 + "\n";
+			currentSize += filePathUtf8.length() + 1;
 		}
 
-		if (response.empty()) response = "Directory is empty.";
-		bot.getApi().sendMessage(message->chat->id, response);
+		if (response.empty()) {
+			bot.getApi().sendMessage(message->chat->id, "Directory is empty.");
+		}
+		else {
+			bot.getApi().sendMessage(message->chat->id, response);
+		}
+	}
+	catch (const fs::filesystem_error& e) {
+		bot.getApi().sendMessage(message->chat->id, "Filesystem error: " + string(e.what()));
+	}
+	catch (const exception& e) {
+		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+	}
+	catch (...) {
+		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
+	}
+}
+
+
+void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+	namespace fs = std::filesystem;
+	using namespace std;
+
+	wstring wpath = utf8_to_wstring(message->text);
+	
+	unsigned long totalFilesNameLength = 0;
+	unsigned int totalFilesNumber = 0;
+	unsigned long long totalFilesSize = 0;
+
+	if (fs::exists(wpath) && fs::is_directory(wpath)) {
+		ofstream outfile(cdfilename, ios::trunc);
+
+		try {
+			for (const auto& entry : fs::recursive_directory_iterator(wpath, fs::directory_options::skip_permission_denied)) {
+				wstring filePath = entry.path().wstring();
+				int fileNameLength = entry.path().filename().wstring().length();
+				totalFilesNameLength += fileNameLength;
+
+				if (fs::is_regular_file(filePath)) {
+					long size = fs::file_size(filePath);
+					totalFilesSize += size;
+					++totalFilesNumber;
+				}
+
+				outfile << wstringToUtf8(filePath) << "\n";
+			}
+		}
+		catch (const fs::filesystem_error& e) {
+			bot.getApi().sendMessage(message->chat->id, "Error accessing the file: " + string(e.what()));
+			return;
+		}
+
+		double averageLength = static_cast<double>(totalFilesNameLength) / totalFilesNumber;
+		double averageSize = static_cast<double>(totalFilesSize) / totalFilesNumber;
+
+		outfile << "\n" <<
+			"Total filename length: " << totalFilesNameLength << " symbols\n" <<
+			"Total files number: " << totalFilesNumber << "\n" <<
+			"Total files size: " << totalFilesSize << " bytes\n" <<
+			"Average filename length: " << averageLength << "\n" <<
+			"Average file size: " << averageSize << " bytes\n";
+
+		bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(cdfilename, "text/plain"));
 	}
 	else {
 		bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a directory.");
 	}
 }
-
 
 
 void startFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
@@ -188,19 +283,24 @@ void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 }
 
 
-
 void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
 	using namespace std;
 
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+
 	while (isConversationRunning) {
 		try {
-			string input;
-			getline(cin, input);
+			cin.clear();
+			wstring winput;
+			getline(wcin, winput);
 
-			if (input.empty()) {
+			if (winput.empty()) {
 				bot.getApi().sendMessage(chat_id, "[ENTER]");
 				continue;
 			}
+
+			string input = wstringToUtf8(winput);
 			bot.getApi().sendMessage(chat_id, input);
 		}
 		catch (const std::exception& e) {
@@ -212,8 +312,12 @@ void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
 
 void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	using namespace std;
+
+	SetConsoleOutputCP(CP_UTF8);
+
 	try {
 		cout << message->text << endl;
+		bot.getApi().sendMessage(message->chat->id, "Your message had successfully sended.");
 	}
 	catch (const std::exception& e) {
 		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
@@ -226,14 +330,14 @@ void playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	using namespace std;
 
 	string path = message->text;
-	wstring wpath(path.begin(), path.end());
+	wstring wpath = utf8_to_wstring(path);
 
-	if (!fs::exists(path)) {
+	if (!fs::exists(wpath)) {
 		bot.getApi().sendMessage(message->chat->id, "Error: File does not exist.");
 		return;
 	}
 
-	ifstream file(path);
+	ifstream file(wpath);
 	if (!file.is_open()) {
 		bot.getApi().sendMessage(message->chat->id, "Error: Cannot open file.");
 		return;
@@ -244,6 +348,7 @@ void playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 		mciSendString((L"open \"" + wpath + L"\" type mpegvideo alias myMP3").c_str(), NULL, 0, NULL);
 		mciSendString(L"play myMP3", NULL, 0, NULL);
 		isMusicPlaying = true;
+		bot.getApi().sendMessage(message->chat->id, "Music is playing.");
 	}
 	catch (const std::exception& e) {
 		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());

