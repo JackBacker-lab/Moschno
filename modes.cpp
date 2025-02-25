@@ -77,49 +77,80 @@ void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	wstring wpath = utf8_to_wstring(message->text);
-	
+	if (!message || message->text.empty()) {
+		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
+		return;
+	}
+
+	string path = message->text;
+	wstring wpath;
+
+	try {
+		wpath = utf8_to_wstring(path);
+	}
+	catch (const exception& e) {
+		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
+		return;
+	}
+
+	if (!fs::exists(wpath)) {
+		bot.getApi().sendMessage(message->chat->id, "Path does not exist.");
+		return;
+	}
+
+	if (!fs::is_directory(wpath)) {
+		bot.getApi().sendMessage(message->chat->id, "The path is not a directory.");
+		return;
+	}
+
 	unsigned long totalFilesNameLength = 0;
 	unsigned int totalFilesNumber = 0;
 	unsigned long long totalFilesSize = 0;
 
-	if (fs::exists(wpath) && fs::is_directory(wpath)) {
+	try {
 		ofstream outfile(cdfilename, ios::trunc);
-
-		try {
-			for (const auto& entry : fs::recursive_directory_iterator(wpath, fs::directory_options::skip_permission_denied)) {
-				wstring filePath = entry.path().wstring();
-				int fileNameLength = entry.path().filename().wstring().length();
-				totalFilesNameLength += fileNameLength;
-
-				if (fs::is_regular_file(filePath)) {
-					long size = fs::file_size(filePath);
-					totalFilesSize += size;
-					++totalFilesNumber;
-				}
-
-				outfile << wstringToUtf8(filePath) << "\n";
-			}
-		}
-		catch (const fs::filesystem_error& e) {
-			bot.getApi().sendMessage(message->chat->id, "Error accessing the file: " + string(e.what()));
+		if (!outfile) {
+			bot.getApi().sendMessage(message->chat->id, "Error: Unable to open file for writing.");
 			return;
 		}
 
-		double averageLength = static_cast<double>(totalFilesNameLength) / totalFilesNumber;
-		double averageSize = static_cast<double>(totalFilesSize) / totalFilesNumber;
+		unsigned long totalFilesNameLength = 0;
+		unsigned int totalFilesNumber = 0;
+		unsigned long long totalFilesSize = 0;
 
-		outfile << "\n" <<
-			"Total filename length: " << totalFilesNameLength << " symbols\n" <<
-			"Total files number: " << totalFilesNumber << "\n" <<
-			"Total files size: " << totalFilesSize << " bytes\n" <<
-			"Average filename length: " << averageLength << "\n" <<
-			"Average file size: " << averageSize << " bytes\n";
+		for (const auto& entry : fs::recursive_directory_iterator(wpath, fs::directory_options::skip_permission_denied)) {
+			wstring filePath = entry.path().wstring();
+			int fileNameLength = entry.path().filename().wstring().length();
+			totalFilesNameLength += fileNameLength;
+
+			if (fs::is_regular_file(entry.path())) {
+				totalFilesSize += fs::file_size(entry.path());
+				++totalFilesNumber;
+			}
+
+			outfile << wstringToUtf8(filePath) << "\n";
+		}
+
+		double averageLength = (totalFilesNumber > 0) ? static_cast<double>(totalFilesNameLength) / totalFilesNumber : 0;
+		double averageSize = (totalFilesNumber > 0) ? static_cast<double>(totalFilesSize) / totalFilesNumber : 0;
+
+		outfile << "\n"
+			<< "Total filename length: " << totalFilesNameLength << " symbols\n"
+			<< "Total files number: " << totalFilesNumber << "\n"
+			<< "Total files size: " << totalFilesSize << " bytes\n"
+			<< "Average filename length: " << averageLength << "\n"
+			<< "Average file size: " << averageSize << " bytes\n";
 
 		bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(cdfilename, "text/plain"));
 	}
-	else {
-		bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a directory.");
+	catch (const fs::filesystem_error& e) {
+		bot.getApi().sendMessage(message->chat->id, "Filesystem error: " + string(e.what()));
+	}
+	catch (const exception& e) {
+		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+	}
+	catch (...) {
+		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
 	}
 }
 
@@ -128,40 +159,96 @@ void startFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	string path = message->text;
-	wstring wpath = utf8_to_wstring(path);
+	try {
+		if (!message || message->text.empty()) {
+			bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
+			return;
+		}
 
-	if (fs::exists(wpath))
-	{
-		// Starting the file with ShellExecuteW
+		string path = message->text;
+		wstring wpath;
+
+		try {
+			wpath = utf8_to_wstring(path);
+		}
+		catch (const exception& e) {
+			bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
+			return;
+		}
+
+		if (!fs::exists(wpath)) {
+			bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist.");
+			return;
+		}
+
+		// Execute file/program
 		HINSTANCE result = ShellExecuteW(NULL, L"open", wpath.c_str(), NULL, NULL, SW_SHOWNORMAL);
 
-		if ((intptr_t)result <= 32)
-			bot.getApi().sendMessage(message->chat->id, "Error executing program.");
-
-		else
+		if ((intptr_t)result <= 32) {
+			string errorMsg;
+			switch ((intptr_t)result) {
+			case SE_ERR_FNF: errorMsg = "File not found."; break;
+			case SE_ERR_PNF: errorMsg = "Path not found."; break;
+			case SE_ERR_ACCESSDENIED: errorMsg = "Access denied."; break;
+			case SE_ERR_OOM: errorMsg = "Out of memory."; break;
+			default: errorMsg = "Unknown execution error.";
+			}
+			bot.getApi().sendMessage(message->chat->id, "Error executing program: " + errorMsg);
+		}
+		else {
 			bot.getApi().sendMessage(message->chat->id, "Program executed successfully.");
+		}
 	}
-	else
-		bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist.");
+	catch (const exception& e) {
+		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+	}
+	catch (...) {
+		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
+	}
 }
 
 
 void deleteFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
+	try {
+		string path = message->text;
+		wstring wpath;
 
-	string path = message->text;
-	wstring wpath = utf8_to_wstring(path);
+		try {
+			wpath = utf8_to_wstring(path);
+		}
+		catch (const exception& e) {
+			bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
+			return;
+		}
 
-	if (fs::exists(wpath) && fs::is_regular_file(wpath)) {
-		if (fs::remove(wpath))
-			bot.getApi().sendMessage(message->chat->id, "File has been successfully deleted.");
-		else
+		if (!fs::exists(wpath)) {
+			bot.getApi().sendMessage(message->chat->id, "Path does not exist.");
+			return;
+		}
+
+		if (!fs::is_regular_file(wpath)) {
+			bot.getApi().sendMessage(message->chat->id, "The path is not a regular file.");
+			return;
+		}
+
+		if (!fs::remove(wpath)) {
 			bot.getApi().sendMessage(message->chat->id, "Cannot delete the file.");
+			return;
+		}
+		
+		bot.getApi().sendMessage(message->chat->id, "File has been successfully deleted.");
 	}
-	else
-		bot.getApi().sendMessage(message->chat->id, "Path is not a file or does not exist.");
+	catch (const fs::filesystem_error& e) {
+		bot.getApi().sendMessage(message->chat->id, "Filesystem error: " + string(e.what()));
+	}
+	catch (const exception& e) {
+		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+	}
+	catch (...) {
+		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
+	}
 }
 
 
