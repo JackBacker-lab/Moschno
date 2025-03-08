@@ -3,14 +3,11 @@
 #include "conversions.h"
 
 
-void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	if (!message || !message->text.length()) {
-		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
-		return;
-	}
+	if (!message || !message->text.length()) return { COE::EmptyInput, "", ResponseType::None, ""};
 
 	string path = message->text;
 	wstring wpath;
@@ -18,20 +15,11 @@ void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	try {
 		wpath = utf8_to_wstring(path);
 	}
-	catch (const exception& e) {
-		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
-		return;
-	}
+	catch (const exception& e) { return { COE::ConversionError, e.what(), ResponseType::None, "" }; }
 
-	if (!fs::exists(wpath)) {
-		bot.getApi().sendMessage(message->chat->id, "Path does not exist.");
-		return;
-	}
+	if (!fs::exists(wpath)) return { COE::PathNotFound, "", ResponseType::None, "" };
 
-	if (!fs::is_directory(wpath)) {
-		bot.getApi().sendMessage(message->chat->id, "The path is not a directory.");
-		return;
-	}
+	if (!fs::is_directory(wpath)) return { COE::NotADirectory, "", ResponseType::None, "" };
 
 	string response;
 	size_t maxMessageSize = 4096; // Telegram API limit
@@ -54,54 +42,39 @@ void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 			currentSize += filePathUtf8.length() + 1;
 		}
 
-		if (response.empty()) {
-			bot.getApi().sendMessage(message->chat->id, "Directory is empty.");
-		}
-		else {
-			bot.getApi().sendMessage(message->chat->id, response);
-		}
+		if (response.empty()) return { COE::EmptyDirectory, "", ResponseType::None, "" };
+
+		return { COE::Success, "", ResponseType::Text, response};
 	}
 	catch (const fs::filesystem_error& e) {
-		bot.getApi().sendMessage(message->chat->id, "Filesystem error: " + string(e.what()));
+		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, ""};
 	}
 	catch (const exception& e) {
-		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+		return { COE::UnexpectedError, e.what(), ResponseType::None, ""};
 	}
 	catch (...) {
-		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
+		return { COE::UnknownError, "", ResponseType::None, "" };
 	}
 }
 
 
-void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result fullCheckDir(std::string message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	if (!message || message->text.empty()) {
-		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
-		return;
-	}
+	if (!message_text.length()) return { COE::EmptyInput, "", ResponseType::None, "" };
 
-	string path = message->text;
+	string path = message_text;
 	wstring wpath;
 
 	try {
 		wpath = utf8_to_wstring(path);
 	}
-	catch (const exception& e) {
-		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
-		return;
-	}
+	catch (const exception& e) { return { COE::ConversionError, e.what(), ResponseType::None, "" }; }
 
-	if (!fs::exists(wpath)) {
-		bot.getApi().sendMessage(message->chat->id, "Path does not exist.");
-		return;
-	}
+	if (!fs::exists(wpath)) return { COE::PathNotFound, "", ResponseType::None, "" };
 
-	if (!fs::is_directory(wpath)) {
-		bot.getApi().sendMessage(message->chat->id, "The path is not a directory.");
-		return;
-	}
+	if (!fs::is_directory(wpath)) return { COE::NotADirectory, "", ResponseType::None, "" };
 
 	unsigned long totalFilesNameLength = 0;
 	unsigned int totalFilesNumber = 0;
@@ -109,10 +82,7 @@ void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 
 	try {
 		ofstream outfile(cdfilename, ios::trunc);
-		if (!outfile) {
-			bot.getApi().sendMessage(message->chat->id, "Error: Unable to open file for writing.");
-			return;
-		}
+		if (!outfile) return { COE::OpenFileError, "", ResponseType::None, "" };
 
 		unsigned long totalFilesNameLength = 0;
 		unsigned int totalFilesNumber = 0;
@@ -141,45 +111,36 @@ void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 			<< "Average filename length: " << averageLength << "\n"
 			<< "Average file size: " << averageSize << " bytes\n";
 
-		bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(cdfilename, "text/plain"));
+		return { COE::Success, "", ResponseType::Path, cdfilename };
 	}
 	catch (const fs::filesystem_error& e) {
-		bot.getApi().sendMessage(message->chat->id, "Filesystem error: " + string(e.what()));
+		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, "" };
 	}
 	catch (const exception& e) {
-		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+		return { COE::UnexpectedError, e.what(), ResponseType::None, "" };
 	}
 	catch (...) {
-		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
+		return { COE::UnknownError, "", ResponseType::None, "" };
 	}
 }
 
 
-void startFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result startFile(std::string message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
 	try {
-		if (!message || message->text.empty()) {
-			bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
-			return;
-		}
+		if (message_text.empty()) return { COE::EmptyInput, "", ResponseType::None, "" };
 
-		string path = message->text;
+		string path = message_text;
 		wstring wpath;
 
 		try {
 			wpath = utf8_to_wstring(path);
 		}
-		catch (const exception& e) {
-			bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string: " + string(e.what()));
-			return;
-		}
+		catch (const exception& e) { return { COE::ConversionError, e.what(), ResponseType::None, "" }; };
 
-		if (!fs::exists(wpath)) {
-			bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist.");
-			return;
-		}
+		if (!fs::exists(wpath)) return { COE::PathNotFound, "", ResponseType::None, "" };
 
 		// Execute file/program
 		HINSTANCE result = ShellExecuteW(NULL, L"open", wpath.c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -193,17 +154,16 @@ void startFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 			case SE_ERR_OOM: errorMsg = "Out of memory."; break;
 			default: errorMsg = "Unknown execution error.";
 			}
-			bot.getApi().sendMessage(message->chat->id, "Error executing program: " + errorMsg);
+
+			return { COE::ExecutionError, errorMsg, ResponseType::None, "" };
 		}
-		else {
-			bot.getApi().sendMessage(message->chat->id, "Program executed successfully.");
-		}
+		return { COE::Success, "", ResponseType::Text, "Program executed successfully."};
 	}
 	catch (const exception& e) {
-		bot.getApi().sendMessage(message->chat->id, "Unexpected error: " + string(e.what()));
+		return { COE::UnexpectedError, e.what(), ResponseType::None, "" };
 	}
 	catch (...) {
-		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred.");
+		return { COE::UnknownError, "", ResponseType::None, "" };
 	}
 }
 

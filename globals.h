@@ -23,6 +23,34 @@ enum Modes {
 	MODE_PLAY_MUSIC,
 };
 
+enum class COE {
+	Success,
+	EmptyInput,
+	EmptyDirectory,
+	InvalidInput,
+	PathNotFound,
+	NotADirectory,
+	ConversionError,
+	FilesystemError,
+	UnexpectedError,
+	ExecutionError,
+	UnknownError,
+	OpenFileError
+};
+
+enum class ResponseType {
+	Text,
+	Path,
+	None
+};
+
+struct Result {
+	COE code;
+	std::string errorDetails;
+	ResponseType response_type;
+	std::string response;
+};
+
 extern int currentMode;
 extern bool isWaitingForSecondPath;
 extern bool isWaitingForFile;

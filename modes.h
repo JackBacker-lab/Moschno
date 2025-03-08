@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <Shellapi.h>
 #include "conversions.h"
+#include "globals.h"
 #include <conio.h>
 #include <mmsystem.h>
 #include <queue>
@@ -13,9 +14,9 @@
 #pragma comment(lib, "winmm.lib")
 
 // Filesystem
-void checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
-void fullCheckDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
-void startFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+Result checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+Result fullCheckDir(std::string message_text);
+Result startFile(std::string message_text);
 void deleteFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 void copyFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 void sendFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);

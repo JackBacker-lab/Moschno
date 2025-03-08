@@ -11,6 +11,89 @@
 #include "modes.h"
 
 
+void handleResult(Result result, const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+	if (result.code == COE::Success) {
+		switch (result.response_type) {
+		case ResponseType::None:
+			break;
+		case ResponseType::Text:
+			bot.getApi().sendMessage(message->chat->id, result.response);
+			break;
+		case ResponseType::Path:
+			namespace fs = std::filesystem;
+			using namespace std;
+
+			wstring wpath = utf8_to_wstring(result.response);
+
+			if (fs::exists(wpath) && fs::is_regular_file(wpath)) {
+				try {
+					string originalFileName = fs::path(wpath).filename().string();
+					string extension = fs::path(wpath).extension().string();
+
+					char tempPath[MAX_PATH];
+					GetTempPathA(MAX_PATH, tempPath);
+					string tempFile = string(tempPath) + "temfile" + extension;
+
+					fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
+					bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"), originalFileName);
+
+					fs::remove(tempFile);
+					bot.getApi().sendMessage(message->chat->id, "File has been sent successfully.");
+				}
+				catch (const exception& e) {
+					bot.getApi().sendMessage(message->chat->id, string("Error sending file: ") + e.what());
+				}
+			}
+			else {
+				bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a file.");
+			};
+		}
+		return;
+	}
+	
+
+	std::string error = result.errorDetails;
+	std::wstring werror = utf8_to_wstring(error);
+	error = wstringToUtf8(werror);
+
+
+	switch (result.code) {
+	case COE::EmptyInput:
+		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message. " + error);
+		break;
+	case COE::EmptyDirectory:
+		bot.getApi().sendMessage(message->chat->id, "Directory is empty. " + error);
+		break;
+	case COE::InvalidInput:
+		bot.getApi().sendMessage(message->chat->id, "Invalid input. " + error);
+		break;
+	case COE::PathNotFound:
+		bot.getApi().sendMessage(message->chat->id, "Path does not exist. " + error);
+		break;
+	case COE::NotADirectory:
+		bot.getApi().sendMessage(message->chat->id, "The path is not a directory. " + error);
+		break;
+	case COE::ConversionError:
+		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string. " + error);
+		break;
+	case COE::FilesystemError:
+		bot.getApi().sendMessage(message->chat->id, "Filesystem error. " + error);
+		break;
+	case COE::UnexpectedError:
+		bot.getApi().sendMessage(message->chat->id, "Unexpected error. " + error);
+		break;
+	case COE::ExecutionError:
+		bot.getApi().sendMessage(message->chat->id, "Execution error. " + error);
+		break;
+	case COE::UnknownError:
+		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred. " + error);
+		break;
+	case COE::OpenFileError:
+		bot.getApi().sendMessage(message->chat->id, "Error opening a file. " + error);
+		break;
+	}
+}
+
 // Main function
 void startBot(std::string token)
 {
@@ -230,8 +313,13 @@ void startBot(std::string token)
 	// ALL messages from the user are processed here FIRST.
 	bot.getEvents().onAnyMessage([&bot](TgBot::Message::Ptr message) {
 
-		// This command is here for easement.
-		if (message->text == "/exit_mode") {
+		if (!message) {
+			bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message.");
+			return;
+		}
+
+		// These commands are here for easement.
+		else if (message->text == "/exit_mode") {
 			bot.getApi().sendMessage(message->chat->id, "Exiting your current mode.");
 			currentMode = MODE_STANDARD;
 			HideConsole();
@@ -257,16 +345,20 @@ void startBot(std::string token)
 		}
 
 
+		Result result;
 		switch (currentMode) 
 		{
 		case MODE_CHECK_DIR:
-			checkDir(bot, message);
+			result = checkDir(bot, message);
+			handleResult(result, bot, message);
 			break;
 		case MODE_FULL_CHECK_DIR:
-			fullCheckDir(bot, message);
+			result = fullCheckDir(message->text);
+			handleResult(result, bot, message);
 			break;
 		case MODE_START_FILE:
-			startFile(bot, message);
+			result = startFile(message->text);
+			handleResult(result, bot, message);
 			break;
 		case MODE_DELETE_FILE:
 			deleteFile(bot, message);
