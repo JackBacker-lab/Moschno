@@ -1,43 +1,51 @@
-#include "PV01.h"
+#include "PV00.h"
 #include <stdlib.h>
+#include <stdio.h>
 
-COE WriteDataBlock(BYTE* data, size_t Length, BYTE block, FILE* file) {
-	if (Length > MAX_LENGTH_BLOCK) Length = MAX_LENGTH_BLOCK;
+COE CreateVoidData(int length, DATA* data) {
+	if (length <= 0 || !data) return UNA;
 
-	BYTE head = 0; // head = (lenght of Data) + block(number) 
-	head += block & 0b00000011;
-	head += (Length - 1) << 2; // 0 < LengthData <= 64
+	if (data->Data) free(data->Data);
+	data->Data = (BYTE*)malloc(length);
+	if (!data->Data) {
+		data->length = 0;
+		return DIV;
+	}
 
-	size_t SumLength = 1 + Length;
-
-	size_t WrittenSymbolsHead = fwrite(&head, 1, 1, file);
-	size_t WrittenSymbolsData = fwrite(data, 1, Length, file);
-
-	if (WrittenSymbolsHead + WrittenSymbolsData != SumLength) return UCW; //I have problem with read-part protocol becouse if written was uncorrect I will be not know how it is detective
-
+	data->length = length;
 	return AG;
 }
 
-COE WriteData(char* path, DATA* data, BYTE block) {
+COE FreeData(DATA* data) {
+	if (!data) return UNA;
+	if (data->Data) {
+		free(data->Data);
+		data->Data = NULL;
+		data->length = 0;
+	}
+	return AG;
+}
+// if DATA->lenght = 0 -> DATA->Data = NULL
+// if DATA->Data = 0 -> DATA->lenght = NULL
+
+COE WriteData(char* path, DATA* data, BYTE block) { // to 64 bytes write will be correct
 	if (!data) return UNA;
 	if (!data->length) return UNA;
 	FILE* file = fopen(path, "ab");
-	if (!file) return FINO;
+	if (file == NULL) return FINO;
 
-	COE error;
-	size_t Length = data->length;
+	BYTE head = 0; // head = (lenght of Data) + block(number) 
+	head += block & 0b00000011;
+	head += (data->length - 1) << 2; // 0 < LengthData <= 64
 
-	for (int i = 0; i < (data->length - 1) / MAX_LENGTH_BLOCK + 1; i++) {
-		error = WriteDataBlock(data->Data + (i*MAX_LENGTH_BLOCK), Length, block, file);
-		Length -= MAX_LENGTH_BLOCK;
+	int SumLength = 1 + data->length;
 
-		if (error == UCW) {
-			fclose(file);
-			return UCW;
-		}
-	}
+	int WrittenSymbolsHead = fwrite(&head, 1, 1, file);
+	int WrittenSymbolsData = fwrite(data->Data, 1, data->length, file);
 
 	fclose(file);
+	if (WrittenSymbolsHead + WrittenSymbolsData != SumLength) return UCW; //I have problem with read-part protocol becouse if written was uncorrect I will be not know how it is detective
+
 	return AG;
 }
 
@@ -72,6 +80,8 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 				if (EndToPoint < LengthDataBlock) {
 					fread(data->Data, 1, EndToPoint - StartToPoint, file);
 					SEEK_DATA += EndToPoint - StartToPoint;
+
+					fclose(file);
 					return AG;
 				}
 				else {
@@ -104,6 +114,8 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 
 			if (EndToPoint < LengthDataBlock) {
 				fread(data->Data + SEEK_SECTION_DATA, 1, EndToPoint, file);
+
+				fclose(file);
 				return AG;
 			}
 			else {
@@ -115,5 +127,6 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 		else fseek(file, LengthDataBlock, SEEK_CUR);
 	}
 
+	fclose(file);
 	return FATAL_ERROR;
 }
