@@ -27,7 +27,6 @@ enum class COE {
 	Success,
 	EmptyInput,
 	EmptyDirectory,
-	InvalidInput,
 	PathNotFound,
 	NotADirectory,
 	ConversionError,
@@ -35,7 +34,10 @@ enum class COE {
 	UnexpectedError,
 	ExecutionError,
 	UnknownError,
-	OpenFileError
+	OpenFileError,
+	LimitError,
+	NotARegularFile,
+	RemoveFileError
 };
 
 enum class ResponseType {
@@ -44,15 +46,16 @@ enum class ResponseType {
 	None
 };
 
+// If code == Success -> returning target information to handleResult() (text or path to file)
+// Else -> returning code + errorDetails to handleResult()
 struct Result {
-	COE code;
-	std::string errorDetails;
-	ResponseType response_type;
-	std::string response;
+	COE code;						// Function's code of end
+	std::string errorDetails;		// Details of error (if there is)
+	ResponseType response_type;		// Type of response
+	std::string response;			// Target response
 };
 
 extern int currentMode;
-extern bool isWaitingForSecondPath;
 extern bool isWaitingForFile;
 extern bool isMusicPlaying;
 

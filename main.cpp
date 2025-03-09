@@ -11,6 +11,7 @@
 #include "modes.h"
 
 
+// Auxiliary function that analyses and handles main funtions' results
 void handleResult(Result result, const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	if (result.code == COE::Success) {
 		switch (result.response_type) {
@@ -52,47 +53,54 @@ void handleResult(Result result, const TgBot::Bot& bot, TgBot::Message::Ptr& mes
 	}
 	
 
-	std::string error = result.errorDetails;
-	std::wstring werror = utf8_to_wstring(error);
-	error = wstringToUtf8(werror);
+	std::string details = result.errorDetails;
+	std::wstring wdetails = utf8_to_wstring(details);
+	details = wstringToUtf8(wdetails);
 
 
 	switch (result.code) {
 	case COE::EmptyInput:
-		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message. " + details);
 		break;
 	case COE::EmptyDirectory:
-		bot.getApi().sendMessage(message->chat->id, "Directory is empty. " + error);
-		break;
-	case COE::InvalidInput:
-		bot.getApi().sendMessage(message->chat->id, "Invalid input. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Directory is empty. " + details);
 		break;
 	case COE::PathNotFound:
-		bot.getApi().sendMessage(message->chat->id, "Path does not exist. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Path does not exist. " + details);
 		break;
 	case COE::NotADirectory:
-		bot.getApi().sendMessage(message->chat->id, "The path is not a directory. " + error);
+		bot.getApi().sendMessage(message->chat->id, "The path is not a directory. " + details);
 		break;
 	case COE::ConversionError:
-		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string. " + details);
 		break;
 	case COE::FilesystemError:
-		bot.getApi().sendMessage(message->chat->id, "Filesystem error. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Filesystem error. " + details);
 		break;
 	case COE::UnexpectedError:
-		bot.getApi().sendMessage(message->chat->id, "Unexpected error. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Unexpected error. " + details);
 		break;
 	case COE::ExecutionError:
-		bot.getApi().sendMessage(message->chat->id, "Execution error. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Execution error. " + details);
 		break;
 	case COE::UnknownError:
-		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred. " + details);
 		break;
 	case COE::OpenFileError:
-		bot.getApi().sendMessage(message->chat->id, "Error opening a file. " + error);
+		bot.getApi().sendMessage(message->chat->id, "Error opening a file. " + details);
+		break;
+	case COE::LimitError:
+		bot.getApi().sendMessage(message->chat->id, "Error: Telegram limit exceeded for message size. " + details);
+		break;
+	case COE::NotARegularFile:
+		bot.getApi().sendMessage(message->chat->id, "The path is not a regular file. " + details);
+		break;
+	case COE::RemoveFileError:
+		bot.getApi().sendMessage(message->chat->id, "Cannot delete the file. " + details);
 		break;
 	}
 }
+
 
 // Main function
 void startBot(std::string token)
@@ -250,7 +258,6 @@ void startBot(std::string token)
 		{
 			bot.getApi().sendMessage(message->chat->id, "Send a path of a file you want to copy.");
 			currentMode = MODE_COPY_FILE;
-			isWaitingForSecondPath = true;
 		}
 		else
 			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
@@ -349,22 +356,19 @@ void startBot(std::string token)
 		switch (currentMode) 
 		{
 		case MODE_CHECK_DIR:
-			result = checkDir(bot, message);
-			handleResult(result, bot, message);
+			result = checkDir(message->text);
 			break;
 		case MODE_FULL_CHECK_DIR:
 			result = fullCheckDir(message->text);
-			handleResult(result, bot, message);
 			break;
 		case MODE_START_FILE:
 			result = startFile(message->text);
-			handleResult(result, bot, message);
 			break;
 		case MODE_DELETE_FILE:
-			deleteFile(bot, message);
+			result = deleteFile(message->text);
 			break;
 		case MODE_COPY_FILE:
-			copyFile(bot, message);
+			result = copyFile(message->text);
 			break;
 		case MODE_SEND_FILE:
 			sendFile(bot, message);
@@ -376,6 +380,7 @@ void startBot(std::string token)
 			playMusic(bot, message);
 			break;
 		}
+		handleResult(result, bot, message);
 
 		});
 

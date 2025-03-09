@@ -14,11 +14,11 @@
 #pragma comment(lib, "winmm.lib")
 
 // Filesystem
-Result checkDir(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+Result checkDir(std::string message_text);
 Result fullCheckDir(std::string message_text);
 Result startFile(std::string message_text);
-void deleteFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
-void copyFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+Result deleteFile(std::string message_text);
+Result copyFile(std::string message_text);
 void sendFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 
