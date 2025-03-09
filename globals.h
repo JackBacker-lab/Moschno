@@ -37,7 +37,8 @@ enum class COE {
 	OpenFileError,
 	LimitError,
 	NotARegularFile,
-	RemoveFileError
+	RemoveFileError,
+	NotAFile
 };
 
 enum class ResponseType {

@@ -306,7 +306,7 @@ Result sendFile(const TgBot::Bot& bot, std::string message_text, int64_t chatId)
 }
 
 
-void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
@@ -315,51 +315,60 @@ void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	static string receivedFileName;
 
 	if (isWaitingForFile) {
-		if (message->document) {
-			try {
-				file = bot.getApi().getFile(message->document->fileId);
-				receivedFileContent = bot.getApi().downloadFile(file->filePath);
-				receivedFileName = message->document->fileName;
+		if (!message->document)
+			return { COE::NotAFile, "", ResponseType::None, ""};
 
-				bot.getApi().sendMessage(message->chat->id, "Send a path, where you want your file to be uploaded.");
-				isWaitingForFile = false;
-				return;
-			}
-			catch (const exception& e) {
-				bot.getApi().sendMessage(message->chat->id, std::string("Error receiving file: ") + e.what());
-			}
+		try {
+			file = bot.getApi().getFile(message->document->fileId);
+			receivedFileContent = bot.getApi().downloadFile(file->filePath);
+			receivedFileName = message->document->fileName;
+
+			isWaitingForFile = false;
+			return { COE::Success, "", ResponseType::Text, "Send a path, where you want your file to be uploaded." };
 		}
-		else {
-			bot.getApi().sendMessage(message->chat->id, "Please send a file first.");
+		catch (const exception& e) {
+			return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
 		}
 	}
 	else {
 		string path = message->text;
-		wstring wpath = utf8_to_wstring(path);
-
-		if (fs::exists(wpath) && fs::is_directory(wpath)) {
-			wstring fullPath = wpath + L"\\" + utf8_to_wstring(receivedFileName);
-
-			ofstream outFile(fullPath, ios::binary);
-
-			if (outFile.is_open()) {
-				outFile.write(receivedFileContent.data(), receivedFileContent.size());
-				outFile.close();
-				bot.getApi().sendMessage(message->chat->id, "File has been uploaded successfully.");
-			}
-			else {
-				bot.getApi().sendMessage(message->chat->id, "Error opening the file.");
-			}
+		wstring wpath;
+		try {
+			wpath = utf8_to_wstring(path);
 		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a directory.");
+		catch (const exception& e) {
+			return { COE::ConversionError, e.what(), ResponseType::None, "" };
+		};
 
+		if (!fs::exists(wpath))
+			return { COE::PathNotFound, "", ResponseType::None, "" };
+
+		if (!fs::is_directory(wpath))
+			return { COE::NotADirectory, "", ResponseType::None, "" };
+			
+		wstring fullPath;
+		try {
+			fullPath = wpath + L"\\" + utf8_to_wstring(receivedFileName);
+		}
+		catch (const exception& e) {
+			return { COE::ConversionError, e.what(), ResponseType::None, "" };
+		};
+
+		ofstream outFile(fullPath, ios::binary);
+
+		if (!outFile.is_open()) 
+			return { COE::OpenFileError, "", ResponseType::None, ""};
+
+		outFile.write(receivedFileContent.data(), receivedFileContent.size());
+		outFile.close();
 
 		isWaitingForFile = true;
+		return{ COE::Success, "", ResponseType::Text, "File has been uploaded successfully."};
 	}
 }
 
 
+// Decommissioned
 void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
 	using namespace std;
 
@@ -387,6 +396,7 @@ void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
 }
 
 
+// Decommissioned
 void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	using namespace std;
 
@@ -402,32 +412,40 @@ void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 }
 
 
-void playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
 	string path = message->text;
-	wstring wpath = utf8_to_wstring(path);
+	wstring wpath;
 
-	if (!fs::exists(wpath)) {
-		bot.getApi().sendMessage(message->chat->id, "Error: File does not exist.");
-		return;
+	try {
+		wpath = utf8_to_wstring(path);
 	}
+	catch (const exception& e) {
+		return { COE::ConversionError, e.what(), ResponseType::None, "" };
+	}
+
+	if (!fs::exists(wpath))
+		return { COE::PathNotFound, "", ResponseType::None, "" };
 
 	ifstream file(wpath);
-	if (!file.is_open()) {
-		bot.getApi().sendMessage(message->chat->id, "Error: Cannot open file.");
-		return;
-	}
+
+	if (!file.is_open())
+		return { COE::OpenFileError, "", ResponseType::None, "" };
+
 	file.close();
 
 	try {
 		mciSendString((L"open \"" + wpath + L"\" type mpegvideo alias myMP3").c_str(), NULL, 0, NULL);
 		mciSendString(L"play myMP3", NULL, 0, NULL);
 		isMusicPlaying = true;
-		bot.getApi().sendMessage(message->chat->id, "Music is playing.");
+		return { COE::Success, "", ResponseType::Text, "Music is playing." };
 	}
-	catch (const std::exception& e) {
-		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
+	catch (const exception& e) {
+		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+	}
+	catch (...) {
+		return { COE::UnknownError, "", ResponseType::None, "" };
 	}
 }
