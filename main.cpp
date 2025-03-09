@@ -152,9 +152,9 @@ void startBot(std::string token)
 		{	
 			try {
 				takeScreenshot(scrname);
-				Result result = sendFile(bot, scrname, message->chat->id);
+				Result result = sendFile(bot, wstringToUtf8(scrname), message->chat->id);
 				handleResult(result, bot, message->chat->id);
-				result = deleteFile(scrname);
+				result = deleteFile(wstringToUtf8(scrname));
 				handleResult(result, bot, message->chat->id);
 			}
 			catch (const std::exception& e) {
@@ -346,9 +346,12 @@ void startBot(std::string token)
 	try {
 		printf("Bot username: %s\n", bot.getApi().getMe()->username.c_str());
 		bot.getApi().sendMessage(sashaId, "TgBot has been launched.");
+
 		TgBot::TgLongPoll longPoll(bot);
+
 		while (true) {
 			longPoll.start();
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Уменьшает загрузку ЦП
 		}
 	}
 	catch (TgBot::TgException& e) {

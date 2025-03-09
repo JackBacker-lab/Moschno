@@ -3,8 +3,10 @@
 
 #include <iostream>
 #include <windows.h>
+#include <fstream>
+#include <vector>
 
 void GetScreenResolution(int& width, int& height);
-void takeScreenshot(const char* filename);
+void takeScreenshot(const std::wstring& filename);
 
 #endif

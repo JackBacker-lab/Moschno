@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-extern const char* scrname;
+extern const std::wstring scrname;
 extern const char* filename;
 extern const char* cdfilename;
 extern bool isKeyLoggerRunning;

