@@ -1,29 +1,15 @@
-#include <stdio.h>
+#include "PV01.h"
 #include <stdlib.h>
-// pv00 is a "just in file / JIF" WITHOUT CHECK OF CORRECT DATA!!!
-typedef unsigned char COE; // COE <-> Code Of End
-typedef unsigned char BYTE;
-
-#define MAX_LENGTH_BLOCK 64 // max length of one block of data
-
-#define DIV 0x00 // data is void for write
-#define AG 0x01 // always good
-#define FINO 0x02 // file is not open
-#define UCW 0x03 // uncorrect write
-#define FATAL_ERROR 0x04 // fatal error
-#define UNA 0x05 // uncorrect aguments
-
-typedef struct DATA_ {
-	size_t length;
-	BYTE* Data;
-} DATA;
 
 COE CreateVoidData(size_t length, DATA* data) {
 	if (length <= 0 || !data) return UNA;
 
 	if (data->Data) free(data->Data);
 	data->Data = (BYTE*)malloc(length);
-	if (!data->Data) return DIV;
+	if (!data->Data) {
+		data->length = 0;
+		return DIV;
+	}
 
 	data->length = length;
 	return AG;
@@ -58,7 +44,7 @@ COE WriteDataBlock(BYTE* data, size_t Length, BYTE block, FILE* file) {
 
 COE WriteData(char* path, DATA* data, BYTE block) {
 	if (!data) return UNA;
-	if (!data->Data) return UNA;
+	if (!data->length) return UNA;
 	FILE* file = fopen(path, "ab");
 	if (!file) return FINO;
 

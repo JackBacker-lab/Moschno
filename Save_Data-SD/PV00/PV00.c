@@ -1,28 +1,36 @@
-#include <stdio.h>
+#include "PV00.h"
 #include <stdlib.h>
-// pv00 is a "just in file / JIF" WITHOUT CHECK OF CORRECT DATA!!!
-typedef unsigned char COE; // COE <-> Code Of End
-typedef unsigned char BYTE;
-
-#define DIV 0x00 // data is void for write
-#define AG 0x01 // always good
-#define FINO 0x02 // file is not open
-#define UCW 0x03 // uncorrect write
-#define FATAL_ERROR 0x04 // fatal error
-
-typedef struct DATA_ {
-	int length;
-	BYTE* Data;
-} DATA;
+#include <stdio.h>
 
 COE CreateVoidData(int length, DATA* data) {
-	data->length = length;
+	if (length <= 0 || !data) return UNA;
+
+	if (data->Data) free(data->Data);
 	data->Data = (BYTE*)malloc(length);
-	if (data->Data == NULL || data->length == 0) return DIV;
+	if (!data->Data) {
+		data->length = 0;
+		return DIV;
+	}
+
+	data->length = length;
 	return AG;
 }
 
-COE WriteData(char* path, DATA* data, BYTE block) {
+COE FreeData(DATA* data) {
+	if (!data) return UNA;
+	if (data->Data) {
+		free(data->Data);
+		data->Data = NULL;
+		data->length = 0;
+	}
+	return AG;
+}
+// if DATA->lenght = 0 -> DATA->Data = NULL
+// if DATA->Data = 0 -> DATA->lenght = NULL
+
+COE WriteData(char* path, DATA* data, BYTE block) { // to 64 bytes write will be correct
+	if (!data) return UNA;
+	if (!data->length) return UNA;
 	FILE* file = fopen(path, "ab");
 	if (file == NULL) return FINO;
 
@@ -33,11 +41,11 @@ COE WriteData(char* path, DATA* data, BYTE block) {
 	int SumLength = 1 + data->length;
 
 	int WrittenSymbolsHead = fwrite(&head, 1, 1, file);
-	int WrittenSymbolsData = fwrite(data->Data, data->length, 1, file);
-
-	if (WrittenSymbolsHead + WrittenSymbolsData != SumLength) return UCW; //I have problem with read-part protocol becouse if written was uncorrect I will be not know how it is detective
+	int WrittenSymbolsData = fwrite(data->Data, 1, data->length, file);
 
 	fclose(file);
+	if (WrittenSymbolsHead + WrittenSymbolsData != SumLength) return UCW; //I have problem with read-part protocol becouse if written was uncorrect I will be not know how it is detective
+
 	return AG;
 }
 
@@ -55,9 +63,8 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 	int StartToPoint, EndToPoint;
 
 	// find start needs section in data
-	while (1) {
+	while (fread(&Head, 1, 1, file)) {
 		//upload info of head
-		fread(&Head, 1, 1, file);
 		LengthDataBlock = (Head >> 2) + 1;
 		BlockNum = Head & 0b00000011;
 
@@ -73,6 +80,8 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 				if (EndToPoint < LengthDataBlock) {
 					fread(data->Data, 1, EndToPoint - StartToPoint, file);
 					SEEK_DATA += EndToPoint - StartToPoint;
+
+					fclose(file);
 					return AG;
 				}
 				else {
@@ -91,9 +100,8 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 	}
 
 	// write data to section data end find end section data in data 
-	while (1) {
+	while (fread(&Head, 1, 1, file)) {
 		//upload info of head
-		fread(&Head, 1, 1, file);
 		LengthDataBlock = (Head >> 2) + 1;
 		BlockNum = Head & 0b00000011;
 
@@ -106,6 +114,8 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 
 			if (EndToPoint < LengthDataBlock) {
 				fread(data->Data + SEEK_SECTION_DATA, 1, EndToPoint, file);
+
+				fclose(file);
 				return AG;
 			}
 			else {
@@ -117,5 +127,6 @@ COE ReadSectionData(char* path, DATA* data, BYTE block, int FirstImos, int Lengt
 		else fseek(file, LengthDataBlock, SEEK_CUR);
 	}
 
+	fclose(file);
 	return FATAL_ERROR;
 }
