@@ -14,6 +14,6 @@ the program will not accept commands, but will accept what
 the mode is set to (path to folder, flags for executing subtasks, etc.)
 */
 
-int currentMode = MODE_STANDARD;
+Mode currentMode = Mode::STANDARD;
 bool isWaitingForFile = false;
 bool isMusicPlaying = false;

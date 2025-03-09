@@ -10,17 +10,17 @@ extern bool isKeyLoggerRunning;
 extern bool isConversationRunning;
 extern const int64_t sashaId;
 
-enum Modes {
-	MODE_STANDARD,
-	MODE_CHECK_DIR,
-	MODE_FULL_CHECK_DIR,
-	MODE_START_FILE,
-	MODE_DELETE_FILE,
-	MODE_COPY_FILE,
-	MODE_SEND_FILE,
-	MODE_UPLOAD_FILE,
-	MODE_CONVERSATION,
-	MODE_PLAY_MUSIC,
+enum class Mode {
+	STANDARD,
+	CHECK_DIR,
+	FULL_CHECK_DIR,
+	START_FILE,
+	DELETE_FILE,
+	COPY_FILE,
+	SEND_FILE,
+	UPLOAD_FILE,
+	CONVERSATION,
+	PLAY_MUSIC,
 };
 
 enum class COE {
@@ -55,7 +55,7 @@ struct Result {
 	std::string response;			// Target response
 };
 
-extern int currentMode;
+extern Mode currentMode;
 extern bool isWaitingForFile;
 extern bool isMusicPlaying;
 
