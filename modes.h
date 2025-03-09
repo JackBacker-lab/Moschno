@@ -19,7 +19,7 @@ Result fullCheckDir(std::string message_text);
 Result startFile(std::string message_text);
 Result deleteFile(std::string message_text);
 Result copyFile(std::string message_text);
-void sendFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+Result sendFile(const TgBot::Bot& bot, std::string message_text, int64_t chatId);
 void uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 
 // Console conversation

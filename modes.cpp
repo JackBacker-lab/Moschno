@@ -222,7 +222,12 @@ Result copyFile(std::string message_text) {
 	static bool isWaitingForSecondPath = false;
 
 	try {
-		wstring wpath = utf8_to_wstring(message_text);
+		wstring wpath;
+		try {
+			wpath = utf8_to_wstring(message_text);
+		}
+		catch (const exception& e) {
+			return { COE::ConversionError, e.what(), ResponseType::None, "" }; };
 
 		if (isWaitingForSecondPath) {
 			isWaitingForSecondPath = false;
@@ -256,34 +261,47 @@ Result copyFile(std::string message_text) {
 }
 
 
-void sendFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result sendFile(const TgBot::Bot& bot, std::string message_text, int64_t chatId) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	string path = message->text;
-	wstring wpath = utf8_to_wstring(path);
-
-	if (fs::exists(wpath) && fs::is_regular_file(wpath)) {
-		try {
-			string originalFileName = fs::path(wpath).filename().string();
-			string extension = fs::path(wpath).extension().string();
-
-			char tempPath[MAX_PATH];
-			GetTempPathA(MAX_PATH, tempPath);
-			string tempFile = std::string(tempPath) + "temfile" + extension;
-
-			fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
-			bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"), originalFileName);
-
-			fs::remove(tempFile);
-			bot.getApi().sendMessage(message->chat->id, "File has been sent successfully.");
-		}
-		catch (const std::exception& e) {
-			bot.getApi().sendMessage(message->chat->id, std::string("Error sending file: ") + e.what());
-		}
+	string path = message_text;
+	wstring wpath;
+	try {
+		wpath = utf8_to_wstring(path);
 	}
-	else {
-		bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a file.");
+	catch (const exception& e) {
+		return { COE::ConversionError, e.what(), ResponseType::None, "" };
+	};
+
+	if (!fs::exists(wpath))
+		return { COE::PathNotFound, "", ResponseType::None, "" };
+
+	if (!fs::is_regular_file(wpath))
+		return { COE::NotARegularFile, "", ResponseType::None, "" };
+
+	try {
+		string originalFileName = fs::path(wpath).filename().string();
+		string extension = fs::path(wpath).extension().string();
+
+		char tempPath[MAX_PATH];
+		GetTempPathA(MAX_PATH, tempPath);
+		string tempFile = std::string(tempPath) + "tempfile" + extension;
+
+		fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
+		bot.getApi().sendDocument(chatId, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"), originalFileName);
+
+		fs::remove(tempFile);
+		return { COE::Success, "", ResponseType::Text, "File has been sent successfully." };
+	}
+	catch (const fs::filesystem_error& e) {
+		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, "" };
+	}
+	catch (const exception& e) {
+		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+	}
+	catch (...) {
+		return { COE::UnknownError, "", ResponseType::None, "" };
 	}
 }
 

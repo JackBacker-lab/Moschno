@@ -11,94 +11,53 @@
 #include "modes.h"
 
 
-// Auxiliary function that analyses and handles main funtions' results
-void handleResult(Result result, const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+// Auxiliary function that analyzes and handles main funtions' results
+void handleResult(Result result, const TgBot::Bot& bot, int64_t chatId) {
 	if (result.code == COE::Success) {
 		switch (result.response_type) {
-		case ResponseType::None:
-			break;
 		case ResponseType::Text:
-			bot.getApi().sendMessage(message->chat->id, result.response);
+			bot.getApi().sendMessage(chatId, result.response);
 			break;
 		case ResponseType::Path:
-			namespace fs = std::filesystem;
-			using namespace std;
-
-			wstring wpath = utf8_to_wstring(result.response);
-
-			if (fs::exists(wpath) && fs::is_regular_file(wpath)) {
-				try {
-					string originalFileName = fs::path(wpath).filename().string();
-					string extension = fs::path(wpath).extension().string();
-
-					char tempPath[MAX_PATH];
-					GetTempPathA(MAX_PATH, tempPath);
-					string tempFile = string(tempPath) + "temfile" + extension;
-
-					fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
-					bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"), originalFileName);
-
-					fs::remove(tempFile);
-					bot.getApi().sendMessage(message->chat->id, "File has been sent successfully.");
-				}
-				catch (const exception& e) {
-					bot.getApi().sendMessage(message->chat->id, string("Error sending file: ") + e.what());
-				}
-			}
-			else {
-				bot.getApi().sendMessage(message->chat->id, "It seems that this path does not exist or is not a file.");
-			};
+			result = sendFile(bot, result.response, chatId);
+			handleResult(result, bot, chatId);
 		}
 		return;
 	}
-	
 
 	std::string details = result.errorDetails;
 	std::wstring wdetails = utf8_to_wstring(details);
 	details = wstringToUtf8(wdetails);
 
-
+	std::string message;
 	switch (result.code) {
-	case COE::EmptyInput:
-		bot.getApi().sendMessage(message->chat->id, "Invalid input: empty or null message. " + details);
-		break;
-	case COE::EmptyDirectory:
-		bot.getApi().sendMessage(message->chat->id, "Directory is empty. " + details);
-		break;
-	case COE::PathNotFound:
-		bot.getApi().sendMessage(message->chat->id, "Path does not exist. " + details);
-		break;
-	case COE::NotADirectory:
-		bot.getApi().sendMessage(message->chat->id, "The path is not a directory. " + details);
-		break;
-	case COE::ConversionError:
-		bot.getApi().sendMessage(message->chat->id, "Error converting path to wide string. " + details);
-		break;
-	case COE::FilesystemError:
-		bot.getApi().sendMessage(message->chat->id, "Filesystem error. " + details);
-		break;
-	case COE::UnexpectedError:
-		bot.getApi().sendMessage(message->chat->id, "Unexpected error. " + details);
-		break;
-	case COE::ExecutionError:
-		bot.getApi().sendMessage(message->chat->id, "Execution error. " + details);
-		break;
-	case COE::UnknownError:
-		bot.getApi().sendMessage(message->chat->id, "Unknown error occurred. " + details);
-		break;
-	case COE::OpenFileError:
-		bot.getApi().sendMessage(message->chat->id, "Error opening a file. " + details);
-		break;
-	case COE::LimitError:
-		bot.getApi().sendMessage(message->chat->id, "Error: Telegram limit exceeded for message size. " + details);
-		break;
-	case COE::NotARegularFile:
-		bot.getApi().sendMessage(message->chat->id, "The path is not a regular file. " + details);
-		break;
-	case COE::RemoveFileError:
-		bot.getApi().sendMessage(message->chat->id, "Cannot delete the file. " + details);
-		break;
+	case COE::EmptyInput:	   message = "Invalid input: empty or null message. "; break;
+
+	case COE::EmptyDirectory:  message = "Directory is empty. "; break;
+
+	case COE::PathNotFound:	   message = "Path does not exist. "; break;
+
+	case COE::NotADirectory:   message = "The path is not a directory. "; break;
+
+	case COE::ConversionError: message = "Error converting path to wide string. "; break;
+
+	case COE::FilesystemError: message = "Filesystem error. "; break;
+
+	case COE::UnexpectedError: message = "Unexpected error. "; break;
+
+	case COE::ExecutionError:  message = "Execution error. "; break;
+
+	case COE::UnknownError:	   message = "Unknown error occurred. "; break;
+
+	case COE::OpenFileError:   message = "Error opening a file. "; break;
+
+	case COE::LimitError:	   message = "Error: Telegram limit exceeded for message size. "; break;
+
+	case COE::NotARegularFile: message = "The path is not a regular file. "; break;
+
+	case COE::RemoveFileError: message = "Cannot delete the file. "; break;
 	}
+	bot.getApi().sendMessage(chatId, message + details);
 }
 
 
@@ -371,7 +330,7 @@ void startBot(std::string token)
 			result = copyFile(message->text);
 			break;
 		case MODE_SEND_FILE:
-			sendFile(bot, message);
+			result = sendFile(bot, message->text, message->chat->id);
 			break;
 		case MODE_UPLOAD_FILE:
 			uploadFile(bot, message);
@@ -380,7 +339,7 @@ void startBot(std::string token)
 			playMusic(bot, message);
 			break;
 		}
-		handleResult(result, bot, message);
+		handleResult(result, bot, message->chat->id);
 
 		});
 
