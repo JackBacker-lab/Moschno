@@ -3,9 +3,6 @@
 
 #include <iostream>
 
-extern const std::wstring scrname;
-extern const char* filename;
-extern const char* cdfilename;
 extern bool isKeyLoggerRunning;
 extern bool isConversationRunning;
 extern const int64_t sashaId;
@@ -56,6 +53,7 @@ struct Result {
 	std::string response;			// Target response
 };
 
+extern const std::string klFilename;
 extern Mode currentMode;
 extern bool isWaitingForFile;
 extern bool isMusicPlaying;

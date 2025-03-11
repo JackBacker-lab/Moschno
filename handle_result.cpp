@@ -4,6 +4,8 @@
 void handleResult(Result& result, const TgBot::Bot& bot, int64_t chatId) {
 	if (result.code == COE::Success) {
 		switch (result.response_type) {
+		case ResponseType::None:
+			break;
 		case ResponseType::Text:
 			bot.getApi().sendMessage(chatId, result.response);
 			break;

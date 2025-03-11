@@ -5,8 +5,12 @@
 #include <windows.h>
 #include <fstream>
 #include <vector>
+#include <codecvt>
+#include "conversions.h"
+
 
 void GetScreenResolution(int& width, int& height);
-void takeScreenshot(const std::wstring& filename);
+void takeScreenshot(const std::string& filename);
+
 
 #endif

@@ -23,10 +23,12 @@ Result sendFile(const TgBot::Bot& bot, const std::string& message_text, int64_t 
 Result uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
 
 // Console conversation
+/*
 void listenMode(const TgBot::Bot& bot, int64_t chat_id);
 void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+*/
 
 // Music
-Result playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message);
+Result playMusic(const std::string& message);
 
 #endif

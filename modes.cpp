@@ -1,6 +1,17 @@
 #include "modes.h"
 #include "globals.h"
 #include "conversions.h"
+#include "handle_result.h"
+
+// Auxiliary function for sendFile
+bool containsCyrillic(const std::string& str) {
+	for (unsigned char c : str) {
+		if ((c >= 0xC0 && c <= 0xFF) || c == 0xA8 || c == 0xB8) {
+			return true; // Approximate range of UTF-8 codes for Cyrillic characters
+		}
+	}
+	return false;
+}
 
 
 Result checkDir(const std::string& message_text) {
@@ -87,7 +98,11 @@ Result fullCheckDir(const std::string& message_text) {
 	unsigned long long totalFilesSize = 0;
 
 	try {
-		ofstream outfile(cdfilename, ios::trunc);
+		char tempPath[MAX_PATH];
+		GetTempPathA(MAX_PATH, tempPath);
+		string tempFile = string(tempPath) + "cdtemp.txt";
+
+		ofstream outfile(tempFile, ios::trunc);
 		if (!outfile) 
 			return { COE::OpenFileError, "", ResponseType::None, "" };
 
@@ -118,7 +133,7 @@ Result fullCheckDir(const std::string& message_text) {
 			<< "Average filename length: " << averageLength << "\n"
 			<< "Average file size: " << averageSize << " bytes\n";
 
-		return { COE::Success, "", ResponseType::Path, cdfilename };
+		return { COE::Success, "", ResponseType::Path, tempFile };
 	}
 	catch (const fs::filesystem_error& e) {
 		return { COE::FilesystemError, string(e.what()), ResponseType::None, "" };
@@ -200,7 +215,7 @@ Result deleteFile(const std::string& message_text) {
 		if (!fs::remove(wpath)) 
 			return { COE::RemoveFileError, "", ResponseType::None, "" };
 		
-		return { COE::Success, "", ResponseType::Text, "File has been successfully deleted." };
+		return { COE::Success, "", ResponseType::Text, "File has been successfully deleted: " + wstringToUtf8(wpath)};
 	}
 	catch (const fs::filesystem_error& e) {
 		return { COE::FilesystemError, string(e.what()), ResponseType::None, "" };
@@ -281,17 +296,27 @@ Result sendFile(const TgBot::Bot& bot, const std::string& message_text, int64_t 
 		return { COE::NotARegularFile, "", ResponseType::None, "" };
 
 	try {
-		string originalFileName = fs::path(wpath).filename().string();
-		string extension = fs::path(wpath).extension().string();
+		if (containsCyrillic(path)) {
+			string extension = fs::path(wpath).extension().string();
 
-		char tempPath[MAX_PATH];
-		GetTempPathA(MAX_PATH, tempPath);
-		string tempFile = string(tempPath) + "tempfile" + extension;
+			char tempPath[MAX_PATH];
+			GetTempPathA(MAX_PATH, tempPath);
+			string tempFile = string(tempPath) + "tempfile" + extension;
 
-		fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
-		bot.getApi().sendDocument(chatId, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"), originalFileName);
+			fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
+			bot.getApi().sendDocument(chatId, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"));
 
-		fs::remove(tempFile);
+			Result result = deleteFile(tempFile);
+			handleResult(result, bot, chatId);
+
+			if (currentMode == Mode::FULL_CHECK_DIR) {
+				Result result = deleteFile(tempFile);
+				handleResult(result, bot, chatId);
+			}
+			return { COE::Success, "", ResponseType::Text, "File has been sent successfully." };
+		}
+		
+		bot.getApi().sendDocument(chatId, TgBot::InputFile::fromFile(path, "application/octet-stream"));
 		return { COE::Success, "", ResponseType::Text, "File has been sent successfully." };
 	}
 	catch (const fs::filesystem_error& e) {
@@ -369,6 +394,7 @@ Result uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 
 
 // Decommissioned
+/*
 void listenMode(const TgBot::Bot& bot, int64_t chat_id) {
 	using namespace std;
 
@@ -396,7 +422,6 @@ void listenMode(const TgBot::Bot& bot, int64_t chat_id) {
 }
 
 
-// Decommissioned
 void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 	using namespace std;
 
@@ -410,13 +435,14 @@ void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
 	}
 }
+*/
 
 
-Result playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
+Result playMusic(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	string path = message->text;
+	string path = message_text;
 	wstring wpath;
 
 	try {

