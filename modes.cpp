@@ -3,7 +3,7 @@
 #include "conversions.h"
 
 
-Result checkDir(std::string message_text) {
+Result checkDir(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
@@ -49,10 +49,10 @@ Result checkDir(std::string message_text) {
 		return { COE::Success, "", ResponseType::Text, response};
 	}
 	catch (const fs::filesystem_error& e) {
-		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, ""};
+		return { COE::FilesystemError, string(e.what()), ResponseType::None, ""};
 	}
 	catch (const exception& e) {
-		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, ""};
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, ""};
 	}
 	catch (...) {
 		return { COE::UnknownError, "", ResponseType::None, "" };
@@ -60,7 +60,7 @@ Result checkDir(std::string message_text) {
 }
 
 
-Result fullCheckDir(std::string message_text) {
+Result fullCheckDir(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
@@ -121,10 +121,10 @@ Result fullCheckDir(std::string message_text) {
 		return { COE::Success, "", ResponseType::Path, cdfilename };
 	}
 	catch (const fs::filesystem_error& e) {
-		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::FilesystemError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (const exception& e) {
-		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (...) {
 		return { COE::UnknownError, "", ResponseType::None, "" };
@@ -132,7 +132,7 @@ Result fullCheckDir(std::string message_text) {
 }
 
 
-Result startFile(std::string message_text) {
+Result startFile(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
@@ -170,7 +170,7 @@ Result startFile(std::string message_text) {
 		return { COE::Success, "", ResponseType::Text, "Program executed successfully."};
 	}
 	catch (const exception& e) {
-		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (...) {
 		return { COE::UnknownError, "", ResponseType::None, "" };
@@ -178,7 +178,7 @@ Result startFile(std::string message_text) {
 }
 
 
-Result deleteFile(std::string message_text) {
+Result deleteFile(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 	try {
@@ -203,10 +203,10 @@ Result deleteFile(std::string message_text) {
 		return { COE::Success, "", ResponseType::Text, "File has been successfully deleted." };
 	}
 	catch (const fs::filesystem_error& e) {
-		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::FilesystemError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (const exception& e) {
-		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (...) {
 		return { COE::UnknownError, "", ResponseType::None, "" };
@@ -214,7 +214,7 @@ Result deleteFile(std::string message_text) {
 }
 
 
-Result copyFile(std::string message_text) {
+Result copyFile(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
@@ -261,7 +261,7 @@ Result copyFile(std::string message_text) {
 }
 
 
-Result sendFile(const TgBot::Bot& bot, std::string message_text, int64_t chatId) {
+Result sendFile(const TgBot::Bot& bot, const std::string& message_text, int64_t chatId) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
@@ -286,7 +286,7 @@ Result sendFile(const TgBot::Bot& bot, std::string message_text, int64_t chatId)
 
 		char tempPath[MAX_PATH];
 		GetTempPathA(MAX_PATH, tempPath);
-		string tempFile = std::string(tempPath) + "tempfile" + extension;
+		string tempFile = string(tempPath) + "tempfile" + extension;
 
 		fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
 		bot.getApi().sendDocument(chatId, TgBot::InputFile::fromFile(tempFile, "application/octet-stream"), originalFileName);
@@ -295,10 +295,10 @@ Result sendFile(const TgBot::Bot& bot, std::string message_text, int64_t chatId)
 		return { COE::Success, "", ResponseType::Text, "File has been sent successfully." };
 	}
 	catch (const fs::filesystem_error& e) {
-		return { COE::FilesystemError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::FilesystemError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (const exception& e) {
-		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (...) {
 		return { COE::UnknownError, "", ResponseType::None, "" };
@@ -327,7 +327,7 @@ Result uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 			return { COE::Success, "", ResponseType::Text, "Send a path, where you want your file to be uploaded." };
 		}
 		catch (const exception& e) {
-			return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+			return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
 		}
 	}
 	else {
@@ -369,7 +369,7 @@ Result uploadFile(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 
 
 // Decommissioned
-void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
+void listenMode(const TgBot::Bot& bot, int64_t chat_id) {
 	using namespace std;
 
 	SetConsoleCP(1251);
@@ -389,7 +389,7 @@ void listenMode(const TgBot::Bot& bot, const int64_t chat_id) {
 			string input = wstringToUtf8(winput);
 			bot.getApi().sendMessage(chat_id, input);
 		}
-		catch (const std::exception& e) {
+		catch (const exception& e) {
 			bot.getApi().sendMessage(chat_id, string("Error: ") + e.what());
 		}
 	}
@@ -406,7 +406,7 @@ void startConversation(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 		cout << message->text << endl;
 		bot.getApi().sendMessage(message->chat->id, "Your message had successfully sended.");
 	}
-	catch (const std::exception& e) {
+	catch (const exception& e) {
 		bot.getApi().sendMessage(message->chat->id, string("Error: ") + e.what());
 	}
 }
@@ -443,7 +443,7 @@ Result playMusic(const TgBot::Bot& bot, TgBot::Message::Ptr& message) {
 		return { COE::Success, "", ResponseType::Text, "Music is playing." };
 	}
 	catch (const exception& e) {
-		return { COE::UnexpectedError, std::string(e.what()), ResponseType::None, "" };
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
 	}
 	catch (...) {
 		return { COE::UnknownError, "", ResponseType::None, "" };

