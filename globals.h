@@ -35,7 +35,8 @@ enum class COE {
 	LimitError,
 	NotARegularFile,
 	RemoveFileError,
-	NotAFile
+	NotAFile,
+	TakeScreenshotError
 };
 
 enum class ResponseType {
@@ -57,5 +58,9 @@ extern const std::string klFilename;
 extern Mode currentMode;
 extern bool isWaitingForFile;
 extern bool isMusicPlaying;
+
+extern unsigned long totalFileNameLength;
+extern unsigned int totalFileNumber;
+extern unsigned long long totalFileSize;
 
 #endif

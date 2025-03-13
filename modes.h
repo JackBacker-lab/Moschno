@@ -10,6 +10,8 @@
 #include <conio.h>
 #include <mmsystem.h>
 #include <queue>
+#include <vector>
+#include <map>
 
 #pragma comment(lib, "winmm.lib")
 

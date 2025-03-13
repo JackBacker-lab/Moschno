@@ -1,5 +1,6 @@
 #include "handle_result.h"
 
+
 // Auxiliary function that analyzes and handles main funtions' results
 void handleResult(Result& result, const TgBot::Bot& bot, int64_t chatId) {
 	if (result.code == COE::Success) {
@@ -49,6 +50,8 @@ void handleResult(Result& result, const TgBot::Bot& bot, int64_t chatId) {
 	case COE::RemoveFileError: message = "Cannot delete the file. "; break;
 
 	case COE::NotAFile:		   message = "Please send a file first. "; break;
+
+	case COE::TakeScreenshotError: message = "Error while taking screenshot. "; break;
 	}
 	bot.getApi().sendMessage(chatId, message + details);
 }

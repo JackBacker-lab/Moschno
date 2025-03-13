@@ -7,10 +7,11 @@
 #include <vector>
 #include <codecvt>
 #include "conversions.h"
+#include "globals.h"
 
 
 void GetScreenResolution(int& width, int& height);
-void takeScreenshot(const std::string& filename);
+Result takeScreenshot(const std::string& filename);
 
 
 #endif

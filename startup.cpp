@@ -3,9 +3,9 @@
 void AddToStartup(const std::wstring& appName, const std::wstring& exePath) {
 	HKEY hKey;
 
-	// Открываем ключ реестра
+	// Open the registry key
 	if (RegOpenKeyW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", &hKey) == ERROR_SUCCESS) {
-		// Добавляем запись в автозапуск
+		// Adding an entry to autostart
 		if (RegSetValueExW(hKey, appName.c_str(), 0, REG_SZ,
 			reinterpret_cast<const BYTE*>(exePath.c_str()),
 			(exePath.size() + 1) * sizeof(wchar_t)) == ERROR_SUCCESS) {

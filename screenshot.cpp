@@ -1,7 +1,6 @@
 #include "screenshot.h"
 
 
-// Получение разрешения экрана
 void GetScreenResolution(int& width, int& height) {
     DEVMODE devmode{};
     if (EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &devmode)) {
@@ -9,52 +8,49 @@ void GetScreenResolution(int& width, int& height) {
         height = devmode.dmPelsHeight;
     }
     else {
-        std::cerr << "Failed to get screen resolution!" << std::endl;
         width = height = 0;
     }
 }
 
 
-// Создание скриншота и сохранение в BMP-файл
-void takeScreenshot(const std::string& filename) {
+// Taking screenshot and saving it into a BMP-file
+Result takeScreenshot(const std::string& filename) {
     int screenX, screenY;
     GetScreenResolution(screenX, screenY);
-    if (screenX == 0 || screenY == 0) return;
+    if (screenX == 0 || screenY == 0) 
+        return { COE::TakeScreenshotError, "Failed to get screen resolution!", ResponseType::None, "" };
 
-    // Создание контекстов
+    // Creating contexts
     HDC hScreenDC = GetDC(nullptr);
     HDC hMemoryDC = CreateCompatibleDC(hScreenDC);
     if (!hMemoryDC) {
-        std::cerr << "CreateCompatibleDC failed!" << std::endl;
         ReleaseDC(nullptr, hScreenDC);
-        return;
+        return { COE::TakeScreenshotError, "CreateCompatibleDC failed!", ResponseType::None, "" };
     }
 
-    // Создание битмапа
+    // Creating Bitmap
     HBITMAP hBitmap = CreateCompatibleBitmap(hScreenDC, screenX, screenY);
     if (!hBitmap) {
-        std::cerr << "CreateCompatibleBitmap failed!" << std::endl;
         DeleteDC(hMemoryDC);
         ReleaseDC(nullptr, hScreenDC);
-        return;
+        return { COE::TakeScreenshotError, "CreateCompatibleBitmap failed!", ResponseType::None, "" };
     }
 
     SelectObject(hMemoryDC, hBitmap);
 
-    // Захват экрана
+    // Screen capture
     if (!BitBlt(hMemoryDC, 0, 0, screenX, screenY, hScreenDC, 0, 0, SRCCOPY)) {
-        std::cerr << "BitBlt failed!" << std::endl;
         DeleteObject(hBitmap);
         DeleteDC(hMemoryDC);
         ReleaseDC(nullptr, hScreenDC);
-        return;
+        return { COE::TakeScreenshotError, "BitBlt failed!", ResponseType::None, "" };
     }
 
-    // Настройка заголовков BMP
+    // Setting up BMP headers
     BITMAPINFOHEADER bi{};
     bi.biSize = sizeof(BITMAPINFOHEADER);
     bi.biWidth = screenX;
-    bi.biHeight = -screenY;  // Отразить изображение
+    bi.biHeight = -screenY;
     bi.biPlanes = 1;
     bi.biBitCount = 32;
     bi.biCompression = BI_RGB;
@@ -64,24 +60,22 @@ void takeScreenshot(const std::string& filename) {
 
     std::vector<char> buffer(dwBmpSize);
     if (GetDIBits(hMemoryDC, hBitmap, 0, screenY, buffer.data(), (BITMAPINFO*)&bi, DIB_RGB_COLORS) == 0) {
-        std::cerr << "GetDIBits failed!" << std::endl;
         DeleteObject(hBitmap);
         DeleteDC(hMemoryDC);
         ReleaseDC(nullptr, hScreenDC);
-        return;
+        return { COE::TakeScreenshotError, "GetDIBits failed!", ResponseType::None, "" };
     }
 
-    // Создание файла
+    // Creating file
     HANDLE hFile = CreateFileW(utf8_to_wstring(filename).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hFile == INVALID_HANDLE_VALUE) {
-        std::cerr << "CreateFile failed!" << std::endl;
         DeleteObject(hBitmap);
         DeleteDC(hMemoryDC);
         ReleaseDC(nullptr, hScreenDC);
-        return;
+        return { COE::TakeScreenshotError, "CreateFile failed!", ResponseType::None, "" };
     }
 
-    // Заголовок файла BMP
+    // BMP-file headers
     BITMAPFILEHEADER bmfHeader{};
     bmfHeader.bfType = 0x4D42;
     bmfHeader.bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + dwBmpSize;
@@ -92,9 +86,10 @@ void takeScreenshot(const std::string& filename) {
     WriteFile(hFile, &bi, sizeof(BITMAPINFOHEADER), &bytesWritten, nullptr);
     WriteFile(hFile, buffer.data(), dwBmpSize, &bytesWritten, nullptr);
 
-    // Закрытие ресурсов
+    // Closing resources
     CloseHandle(hFile);
     DeleteObject(hBitmap);
     DeleteDC(hMemoryDC);
     ReleaseDC(nullptr, hScreenDC);
+    return { COE::Success, "", ResponseType::Text, "Screenshot has been taken successfully." };
 }

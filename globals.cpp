@@ -15,3 +15,7 @@ const std::string klFilename = "kltemp.txt";
 Mode currentMode = Mode::STANDARD;
 bool isWaitingForFile = false;
 bool isMusicPlaying = false;
+
+unsigned long totalFileNameLength = 0;
+unsigned int totalFileNumber = 0;
+unsigned long long totalFileSize = 0;

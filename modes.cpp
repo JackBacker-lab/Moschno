@@ -14,6 +14,35 @@ bool containsCyrillic(const std::string& str) {
 }
 
 
+// Function for fullCheckDir
+void scanDirectory(const std::wstring& rootPath, std::map<std::wstring, std::vector<std::wstring>>& directoryTree) {
+	namespace fs = std::filesystem;
+	using namespace std;
+
+	try {
+		for (const auto& entry : fs::directory_iterator(rootPath, fs::directory_options::skip_permission_denied)) {
+			wstring itemName = entry.path().filename().wstring();
+
+			if (fs::is_directory(entry.path())) {
+				itemName += L"\\";
+				scanDirectory(entry.path().wstring(), directoryTree);
+			}
+
+			if (fs::is_regular_file(entry.path())) {
+				totalFileSize += fs::file_size(entry.path());
+				++totalFileNumber;
+			}
+
+			totalFileNameLength += itemName.length();
+			directoryTree[rootPath].push_back(itemName);
+		}
+	}
+	catch (const fs::filesystem_error& e) {
+		wcerr << L"Îøèáêà: " << e.what() << endl;
+	}
+}
+
+
 Result checkDir(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
@@ -75,63 +104,49 @@ Result fullCheckDir(const std::string& message_text) {
 	namespace fs = std::filesystem;
 	using namespace std;
 
-	if (!message_text.length()) 
+	if (message_text.empty())
 		return { COE::EmptyInput, "", ResponseType::None, "" };
 
-	string path = message_text;
 	wstring wpath;
-
 	try {
-		wpath = utf8_to_wstring(path);
+		wpath = utf8_to_wstring(message_text);
 	}
-	catch (const exception& e) { 
-		return { COE::ConversionError, e.what(), ResponseType::None, "" }; }
+	catch (const exception& e) {
+		return { COE::ConversionError, e.what(), ResponseType::None, "" };
+	}
 
-	if (!fs::exists(wpath)) 
+	if (!fs::exists(wpath))
 		return { COE::PathNotFound, "", ResponseType::None, "" };
-
-	if (!fs::is_directory(wpath)) 
+	if (!fs::is_directory(wpath))
 		return { COE::NotADirectory, "", ResponseType::None, "" };
 
-	unsigned long totalFilesNameLength = 0;
-	unsigned int totalFilesNumber = 0;
-	unsigned long long totalFilesSize = 0;
 
 	try {
 		char tempPath[MAX_PATH];
 		GetTempPathA(MAX_PATH, tempPath);
 		string tempFile = string(tempPath) + "cdtemp.txt";
 
+		map<wstring, vector<wstring>> directoryTree;
+
+		scanDirectory(wpath, directoryTree);
+
 		ofstream outfile(tempFile, ios::trunc);
-		if (!outfile) 
-			return { COE::OpenFileError, "", ResponseType::None, "" };
-
-		unsigned long totalFilesNameLength = 0;
-		unsigned int totalFilesNumber = 0;
-		unsigned long long totalFilesSize = 0;
-
-		for (const auto& entry : fs::recursive_directory_iterator(wpath, fs::directory_options::skip_permission_denied)) {
-			wstring filePath = entry.path().wstring();
-			int fileNameLength = entry.path().filename().wstring().length();
-			totalFilesNameLength += fileNameLength;
-
-			if (fs::is_regular_file(entry.path())) {
-				totalFilesSize += fs::file_size(entry.path());
-				++totalFilesNumber;
-			}
-
-			outfile << wstringToUtf8(filePath) << "\n";
+		if (!outfile) {
+			return { COE::OpenFileError, "", ResponseType::None, ""};
 		}
 
-		double averageLength = (totalFilesNumber > 0) ? static_cast<double>(totalFilesNameLength) / totalFilesNumber : 0;
-		double averageSize = (totalFilesNumber > 0) ? static_cast<double>(totalFilesSize) / totalFilesNumber : 0;
-
-		outfile << "\n"
-			<< "Total filename length: " << totalFilesNameLength << " symbols\n"
-			<< "Total files number: " << totalFilesNumber << "\n"
-			<< "Total files size: " << totalFilesSize << " bytes\n"
-			<< "Average filename length: " << averageLength << "\n"
-			<< "Average file size: " << averageSize << " bytes\n";
+		for (const auto& [folder, items] : directoryTree) {
+			outfile << wstringToUtf8(folder) << "\\\n";
+			for (size_t i = 0; i < items.size(); ++i) {
+				outfile << "\t";
+				outfile << wstringToUtf8(items[i]) << "\n";
+			}
+			outfile << "\n";
+		}
+		outfile << "Total file number: " << totalFileNumber << "\n";
+		outfile << "Total filename length: " << totalFileNameLength << "\n";
+		outfile << "Total file size: " << totalFileSize << "\n";
+		outfile.close();
 
 		return { COE::Success, "", ResponseType::Path, tempFile };
 	}
@@ -145,6 +160,91 @@ Result fullCheckDir(const std::string& message_text) {
 		return { COE::UnknownError, "", ResponseType::None, "" };
 	}
 }
+
+
+// Old fullCheckDir
+/*
+Result fullCheckDir(const std::string& message_text) {
+	namespace fs = std::filesystem;
+	using namespace std;
+
+	if (message_text.empty())
+		return { COE::EmptyInput, "", ResponseType::None, "" };
+
+	wstring wpath;
+	try {
+		wpath = utf8_to_wstring(message_text);
+	}
+	catch (const exception& e) {
+		return { COE::ConversionError, e.what(), ResponseType::None, "" };
+	}
+
+	if (!fs::exists(wpath))
+		return { COE::PathNotFound, "", ResponseType::None, "" };
+	if (!fs::is_directory(wpath))
+		return { COE::NotADirectory, "", ResponseType::None, "" };
+
+	unsigned long totalFilesNameLength = 0;
+	unsigned int totalFilesNumber = 0;
+	unsigned long long totalFilesSize = 0;
+
+	try {
+		char tempPath[MAX_PATH];
+		GetTempPathA(MAX_PATH, tempPath);
+		string tempFile = string(tempPath) + "cdtemp.txt";
+
+		ofstream outfile(tempFile, ios::trunc);
+		if (!outfile)
+			return { COE::OpenFileError, "", ResponseType::None, "" };
+
+		vector<wstring> filePaths;
+
+		for (const auto& entry : fs::recursive_directory_iterator(wpath, fs::directory_options::skip_permission_denied)) {
+			const auto& path = entry.path();
+			const wstring& filePath = path.wstring();
+			int fileNameLength = path.filename().wstring().length();
+			totalFilesNameLength += fileNameLength;
+
+			bool isFile = fs::is_regular_file(path);
+			if (isFile) {
+				totalFilesSize += fs::file_size(path);
+				++totalFilesNumber;
+			}
+
+			filePaths.push_back(filePath);
+		}
+
+		ostringstream buffer;
+		for (const auto& file : filePaths) {
+			buffer << wstringToUtf8(file) << "\n";
+		}
+
+		double averageLength = (totalFilesNumber > 0) ? static_cast<double>(totalFilesNameLength) / totalFilesNumber : 0;
+		double averageSize = (totalFilesNumber > 0) ? static_cast<double>(totalFilesSize) / totalFilesNumber : 0;
+
+		buffer << "\n"
+			<< "Total filename length: " << totalFilesNameLength << " symbols\n"
+			<< "Total files number: " << totalFilesNumber << "\n"
+			<< "Total files size: " << totalFilesSize << " bytes\n"
+			<< "Average filename length: " << averageLength << "\n"
+			<< "Average file size: " << averageSize << " bytes\n";
+
+		outfile << buffer.str();
+		outfile.close();
+
+		return { COE::Success, "", ResponseType::Path, tempFile };
+	}
+	catch (const fs::filesystem_error& e) {
+		return { COE::FilesystemError, string(e.what()), ResponseType::None, "" };
+	}
+	catch (const exception& e) {
+		return { COE::UnexpectedError, string(e.what()), ResponseType::None, "" };
+	}
+	catch (...) {
+		return { COE::UnknownError, "", ResponseType::None, "" };
+	}
+}
+*/
 
 
 Result startFile(const std::string& message_text) {
