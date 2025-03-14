@@ -12,6 +12,7 @@ the mode is set to (path to folder, flags for executing subtasks, etc.)
 */
 
 const std::string klFilename = "kltemp.txt";
+const std::string cdFileName = "cdtemp.txt";
 Mode currentMode = Mode::STANDARD;
 bool isWaitingForFile = false;
 bool isMusicPlaying = false;

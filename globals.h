@@ -55,6 +55,7 @@ struct Result {
 };
 
 extern const std::string klFilename;
+extern const std::string cdFileName;
 extern Mode currentMode;
 extern bool isWaitingForFile;
 extern bool isMusicPlaying;

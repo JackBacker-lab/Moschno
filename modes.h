@@ -15,6 +15,10 @@
 
 #pragma comment(lib, "winmm.lib")
 
+// Auxiliary functions
+bool containsCyrillic(const std::string& str);
+Result scanDirectory(const std::wstring& rootPath, std::map<std::wstring, std::vector<std::wstring>>& directoryTree);
+
 // Filesystem
 Result checkDir(const std::string& message_text);
 Result fullCheckDir(const std::string& message_text);

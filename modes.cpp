@@ -14,32 +14,31 @@ bool containsCyrillic(const std::string& str) {
 }
 
 
-// Function for fullCheckDir
-void scanDirectory(const std::wstring& rootPath, std::map<std::wstring, std::vector<std::wstring>>& directoryTree) {
-	namespace fs = std::filesystem;
+Result scanDirectory(const std::wstring& rootPath, std::map<std::wstring, std::vector<std::wstring>>& directoryTree) {
 	using namespace std;
+	namespace fs = std::filesystem;
 
-	try {
-		for (const auto& entry : fs::directory_iterator(rootPath, fs::directory_options::skip_permission_denied)) {
-			wstring itemName = entry.path().filename().wstring();
+	fs::recursive_directory_iterator dirIter(rootPath, fs::directory_options::skip_permission_denied);
 
-			if (fs::is_directory(entry.path())) {
-				itemName += L"\\";
-				scanDirectory(entry.path().wstring(), directoryTree);
-			}
+	for (const auto& entry : dirIter) {
+		wstring path = entry.path().wstring();
+		wstring parentPath = entry.path().parent_path().wstring();
+		wstring itemName = entry.path().filename().wstring();
 
-			if (fs::is_regular_file(entry.path())) {
-				totalFileSize += fs::file_size(entry.path());
-				++totalFileNumber;
-			}
-
-			totalFileNameLength += itemName.length();
-			directoryTree[rootPath].push_back(itemName);
+		if (fs::is_directory(entry.path())) {
+			itemName += L"\\";
 		}
+		else if (fs::is_regular_file(entry.path())) {
+			totalFileSize += fs::file_size(entry.path());
+			++totalFileNumber;
+		}
+
+		totalFileNameLength += itemName.length();
+		directoryTree[parentPath].emplace_back(move(itemName));
 	}
-	catch (const fs::filesystem_error& e) {
-		wcerr << L"Îøèáêà: " << e.what() << endl;
-	}
+
+	return { COE::Success, "", ResponseType::None, "" };
+
 }
 
 
@@ -101,8 +100,8 @@ Result checkDir(const std::string& message_text) {
 
 
 Result fullCheckDir(const std::string& message_text) {
-	namespace fs = std::filesystem;
 	using namespace std;
+	namespace fs = std::filesystem;
 
 	if (message_text.empty())
 		return { COE::EmptyInput, "", ResponseType::None, "" };
@@ -120,32 +119,32 @@ Result fullCheckDir(const std::string& message_text) {
 	if (!fs::is_directory(wpath))
 		return { COE::NotADirectory, "", ResponseType::None, "" };
 
-
 	try {
 		char tempPath[MAX_PATH];
 		GetTempPathA(MAX_PATH, tempPath);
-		string tempFile = string(tempPath) + "cdtemp.txt";
+		string tempFile = string(tempPath) + cdFileName;
 
 		map<wstring, vector<wstring>> directoryTree;
+		Result result = scanDirectory(wpath, directoryTree);
 
-		scanDirectory(wpath, directoryTree);
+		ostringstream buffer;
+		for (const auto& [folder, items] : directoryTree) {
+			buffer << wstringToUtf8(folder) << "\\\n";
+			for (const auto& item : items) {
+				buffer << "\t" << wstringToUtf8(item) << "\n";
+			}
+			buffer << "\n";
+		}
+
+		buffer << "Total file number: " << totalFileNumber << "\n";
+		buffer << "Total filename length: " << totalFileNameLength << "\n";
+		buffer << "Total file size: " << totalFileSize << "\n";
 
 		ofstream outfile(tempFile, ios::trunc);
 		if (!outfile) {
-			return { COE::OpenFileError, "", ResponseType::None, ""};
+			return { COE::OpenFileError, "", ResponseType::None, "" };
 		}
-
-		for (const auto& [folder, items] : directoryTree) {
-			outfile << wstringToUtf8(folder) << "\\\n";
-			for (size_t i = 0; i < items.size(); ++i) {
-				outfile << "\t";
-				outfile << wstringToUtf8(items[i]) << "\n";
-			}
-			outfile << "\n";
-		}
-		outfile << "Total file number: " << totalFileNumber << "\n";
-		outfile << "Total filename length: " << totalFileNameLength << "\n";
-		outfile << "Total file size: " << totalFileSize << "\n";
+		outfile << buffer.str();
 		outfile.close();
 
 		return { COE::Success, "", ResponseType::Path, tempFile };
@@ -396,11 +395,10 @@ Result sendFile(const TgBot::Bot& bot, const std::string& message_text, int64_t 
 		return { COE::NotARegularFile, "", ResponseType::None, "" };
 
 	try {
+		char tempPath[MAX_PATH];
+		GetTempPathA(MAX_PATH, tempPath);
 		if (containsCyrillic(path)) {
 			string extension = fs::path(wpath).extension().string();
-
-			char tempPath[MAX_PATH];
-			GetTempPathA(MAX_PATH, tempPath);
 			string tempFile = string(tempPath) + "tempfile" + extension;
 
 			fs::copy(wpath, tempFile, fs::copy_options::overwrite_existing);
@@ -408,15 +406,15 @@ Result sendFile(const TgBot::Bot& bot, const std::string& message_text, int64_t 
 
 			Result result = deleteFile(tempFile);
 			handleResult(result, bot, chatId);
-
-			if (currentMode == Mode::FULL_CHECK_DIR) {
-				Result result = deleteFile(tempFile);
-				handleResult(result, bot, chatId);
-			}
 			return { COE::Success, "", ResponseType::Text, "File has been sent successfully." };
 		}
 		
 		bot.getApi().sendDocument(chatId, TgBot::InputFile::fromFile(path, "application/octet-stream"));
+
+		if (currentMode == Mode::FULL_CHECK_DIR) {
+			Result result = deleteFile(string(tempPath) + cdFileName);
+			handleResult(result, bot, chatId);
+		}
 		return { COE::Success, "", ResponseType::Text, "File has been sent successfully." };
 	}
 	catch (const fs::filesystem_error& e) {
