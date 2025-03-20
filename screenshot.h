@@ -8,10 +8,13 @@
 #include <codecvt>
 #include "conversions.h"
 #include "globals.h"
+#include <gdiplus.h>
+#include <memory>
+
+#pragma comment (lib, "Gdiplus.lib")
 
 
-void GetScreenResolution(int& width, int& height);
-Result takeScreenshot(const std::string& filename);
+Result takeScreenshot(const std::wstring& filename);
 
 
 #endif

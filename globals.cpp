@@ -1,6 +1,7 @@
 #include "globals.h"
 
-bool isKeyLoggerRunning = false;
+
+std::atomic<bool> isKeyLoggerRunning(false);
 bool isConversationRunning = false;
 const int64_t sashaId = 1041837892;
 
@@ -11,12 +12,21 @@ the program will not accept commands, but will accept what
 the mode is set to (path to folder, flags for executing subtasks, etc.)
 */
 
-const std::string klFilename = "kltemp.txt";
+const std::string klFileName = "kltemp.txt";
 const std::string cdFileName = "cdtemp.txt";
+const std::string audioFileName = "output.raw";
 Mode currentMode = Mode::STANDARD;
 bool isWaitingForFile = false;
 bool isMusicPlaying = false;
 
-unsigned long totalFileNameLength = 0;
-unsigned int totalFileNumber = 0;
-unsigned long long totalFileSize = 0;
+size_t totalFileNumber = 0;
+size_t totalFileNameLength = 0;
+uint64_t totalFileSize = 0;
+
+std::string tempPath;
+
+void initTempPath() {
+    char buffer[MAX_PATH];
+    GetTempPathA(MAX_PATH, buffer);
+    tempPath = std::string(buffer);
+}

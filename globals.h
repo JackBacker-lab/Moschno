@@ -1,9 +1,14 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#include <windows.h>
+#include <mmsystem.h>
+#include <fstream>
 #include <iostream>
 
-extern bool isKeyLoggerRunning;
+#pragma comment(lib, "winmm.lib")
+
+extern std::atomic<bool> isKeyLoggerRunning;
 extern bool isConversationRunning;
 extern const int64_t sashaId;
 
@@ -36,7 +41,8 @@ enum class COE {
 	NotARegularFile,
 	RemoveFileError,
 	NotAFile,
-	TakeScreenshotError
+	TakeScreenshotError,
+	RecordAudioError
 };
 
 enum class ResponseType {
@@ -54,14 +60,18 @@ struct Result {
 	std::string response;			// Target response
 };
 
-extern const std::string klFilename;
+extern const std::string klFileName;
 extern const std::string cdFileName;
+extern const std::string audioFileName;
 extern Mode currentMode;
 extern bool isWaitingForFile;
 extern bool isMusicPlaying;
 
-extern unsigned long totalFileNameLength;
-extern unsigned int totalFileNumber;
-extern unsigned long long totalFileSize;
+extern size_t totalFileNumber;
+extern size_t totalFileNameLength;
+extern uint64_t totalFileSize;
+
+extern std::string tempPath;
+void initTempPath();
 
 #endif

@@ -5,6 +5,7 @@ void HideConsole() {
     if (hwnd) {
         ShowWindow(hwnd, SW_HIDE);
     }
+    FreeConsole();
 }
 
 void ShowConsole() {

@@ -13,6 +13,10 @@ void handleResult(Result& result, const TgBot::Bot& bot, int64_t chatId) {
 		case ResponseType::Path:
 			result = sendFile(bot, result.response, chatId);
 			handleResult(result, bot, chatId);
+			if (currentMode == Mode::FULL_CHECK_DIR) {
+				Result result = deleteFile(result.response);
+				handleResult(result, bot, chatId);
+			}
 		}
 		return;
 	}
@@ -52,6 +56,8 @@ void handleResult(Result& result, const TgBot::Bot& bot, int64_t chatId) {
 	case COE::NotAFile:		   message = "Please send a file first. "; break;
 
 	case COE::TakeScreenshotError: message = "Error while taking screenshot. "; break;
+
+	case COE::RecordAudioError: message = "Error while recording audio. "; break;
 	}
 	bot.getApi().sendMessage(chatId, message + details);
 }
