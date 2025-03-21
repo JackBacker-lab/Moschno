@@ -1,7 +1,4 @@
 #include "modes.h"
-#include "globals.h"
-#include "conversions.h"
-#include "handle_result.h"
 
 // Auxiliary function for sendFile
 static bool containsCyrillic(const std::string& str) {
@@ -333,14 +330,11 @@ Result copyFile(const std::string& message_text) {
 		if (isWaitingForSecondPath) {
 			isWaitingForSecondPath = false;
 
-			if (!fs::exists(sourceFilePath))
-				return { COE::PathNotFound, "Source file does not exist.", ResponseType::None, "" };
-
 			if (!fs::exists(fs::path(wpath).parent_path()))
-				return { COE::PathNotFound, "Destination file directory does not exist.", ResponseType::None, "" };
+				return { COE::PathNotFound, "Destination parent path does not exist.", ResponseType::None, "" };
 
 			try {
-				fs::copy(sourceFilePath, wpath, fs::copy_options::overwrite_existing);
+				fs::copy(sourceFilePath, wpath, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
 				return { COE::Success, "", ResponseType::Text, "File has been successfully copied." };
 			}
 			catch (const fs::filesystem_error& e) {
@@ -349,8 +343,10 @@ Result copyFile(const std::string& message_text) {
 		}
 		else {
 			sourceFilePath = wpath;
+			if (!fs::exists(sourceFilePath))
+				return { COE::PathNotFound, "Source path does not exist.", ResponseType::None, "" };
 			isWaitingForSecondPath = true;
-			return { COE::Success, "", ResponseType::Text, "Send a path where you want your file to be copied." };
+			return { COE::Success, "", ResponseType::Text, "Send a path where you want your file or a folder to be copied.\n(C:\\path\\to\\your\\destination\\folder\\new_or_old_name_of_your_file.txt)" };
 		}
 	}
 	catch (const exception& e) {

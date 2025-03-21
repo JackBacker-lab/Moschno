@@ -11,7 +11,7 @@
 #include <gdiplus.h>
 #include <memory>
 
-#pragma comment (lib, "Gdiplus.lib")
+#pragma comment (lib, "gdiplus.lib")
 
 
 Result takeScreenshot(const std::wstring& filename);

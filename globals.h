@@ -42,7 +42,7 @@ enum class COE {
 	RemoveFileError,
 	NotAFile,
 	TakeScreenshotError,
-	RecordAudioError
+	RecordAudioError,
 };
 
 enum class ResponseType {

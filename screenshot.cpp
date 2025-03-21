@@ -1,8 +1,5 @@
 #include "screenshot.h"
-#include <gdiplus.h>
-#include <vector>
 
-#pragma comment (lib, "gdiplus.lib")
 
 static void GetScreenResolution(int& width, int& height) {
     DEVMODE devmode{};

@@ -5,13 +5,15 @@
 #include <tgbot/tgbot.h>
 #include <filesystem>
 #include <Shellapi.h>
-#include "conversions.h"
-#include "globals.h"
 #include <conio.h>
 #include <mmsystem.h>
 #include <queue>
 #include <vector>
 #include <map>
+
+#include "globals.h"
+#include "conversions.h"
+#include "handle_result.h"
 
 #pragma comment(lib, "winmm.lib")
 

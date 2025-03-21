@@ -9,8 +9,8 @@ void HideConsole() {
 }
 
 void ShowConsole() {
-    FreeConsole();  // Disconnect the old console
-    AllocConsole(); // Creating new console
+    FreeConsole();
+    AllocConsole();
 
     // Redirect standard streams to a new console
     HWND hwnd = GetConsoleWindow();
